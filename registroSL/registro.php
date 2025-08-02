@@ -28,7 +28,7 @@ if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] || !$_SESSION['pagad
 
 // Verificar token de sesión para usuarios no admin
 if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
-    $sql = "SELECT session_token FROM usuarios WHERE usuario_id = ?";
+    $sql = "SELECT session_token FROM usuarios WHERE id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     mysqli_stmt_bind_param($stmt, "i", $_SESSION['usuario_id']);
     mysqli_stmt_execute($stmt);
@@ -38,7 +38,7 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
         $datos = mysqli_fetch_assoc($resultado);
         if ($datos['session_token'] !== $_SESSION['session_token']) {
             // Token no coincide - limpiar y redirigir
-            $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE usuario_id = ?");
+            $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
             mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
             mysqli_stmt_execute($clean_stmt);
             session_destroy();
@@ -50,7 +50,7 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
 
 // Actualizar último acceso
 $now = date('Y-m-d H:i:s');
-$update_sql = "UPDATE usuarios SET ultimo_acceso = ? WHERE usuario_id = ?";
+$update_sql = "UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?";
 $update_stmt = mysqli_prepare($conexion, $update_sql);
 mysqli_stmt_bind_param($update_stmt, "si", $now, $_SESSION['usuario_id']);
 mysqli_stmt_execute($update_stmt);
@@ -289,6 +289,7 @@ while ($fila = mysqli_fetch_assoc($resultado_historial)) {
     $fila['modo_offline'] = isset($fila['modo_offline']) ? (int)$fila['modo_offline'] : 0;
     $historial[] = $fila;
 }
+
 
 // Obtener registros pendientes
 $pendientes = [];
