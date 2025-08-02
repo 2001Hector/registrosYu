@@ -157,10 +157,11 @@ foreach ($campos_personalizados as $campo) {
 // Procesar formulario de nota personalizada
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
     $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
-    $titulo_nota = $_POST['titulo_nota'] ?? '';
-    $color_fila = $_POST['color_fila'] ?? '#ffffff';
+    $titulo_nota = $_POST['titulo_nota'] ?? null; // nullable
+    $color_fila = $_POST['color_fila'] ?? null; // nullable
     
     if ($datos_familiares_id) {
+        // Verificar que el registro pertenece al usuario
         $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
         $stmt = $conexion->prepare($query);
         $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
@@ -168,21 +169,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
         $stmt->store_result();
         
         if ($stmt->num_rows > 0) {
+            // Insertar la nota
             $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, color_fila) 
                       VALUES (?, ?, ?)";
             $stmt = $conexion->prepare($query);
-            $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $color_fila);
-            $stmt->execute();
-            $stmt->close();
             
-            $_SESSION['success'] = "Nota personalizada guardada exitosamente";
-            header("Location: personalizar.php");
-            exit();
+            // Usar "iss" para int, string, string (ya que ambos campos son VARCHAR nullable)
+            $stmt->bind_param("iss", $datos_familiares_id, $titulo_nota, $color_fila);
+            
+            if ($stmt->execute()) {
+                $_SESSION['success'] = "Nota personalizada guardada exitosamente";
+            } else {
+                $_SESSION['error'] = "Error al guardar la nota: " . $stmt->error;
+            }
+        } else {
+            $_SESSION['error'] = "Registro no encontrado o no tienes permisos";
         }
+        
         $stmt->close();
+        header("Location: personalizar.php");
+        exit();
+    } else {
+        $_SESSION['error'] = "ID de datos familiares no proporcionado";
+        header("Location: personalizar.php");
+        exit();
     }
 }
-
 // Procesar formulario de campo personalizado
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_campo'])) {
     $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
