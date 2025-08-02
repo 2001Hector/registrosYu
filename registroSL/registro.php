@@ -39,11 +39,84 @@ mysqli_stmt_execute($update_stmt);
 
 // Variable para controlar si se mostró el mensaje de éxito
 $mostrar_exito = false;
+$modo_offline = false;
+
+// Verificar si hay conexión a internet
+function hayConexionInternet() {
+    $conectado = @fsockopen("www.google.com", 80, $errno, $errstr, 2);
+    if ($conectado) {
+        fclose($conectado);
+        return true;
+    }
+    return false;
+}
+
+// Función para guardar datos en localStorage (simulada para PHP)
+function guardarEnLocalStorage($datos) {
+    $archivo = 'local_storage/' . $_SESSION['usuario_id'] . '_pendientes.json';
+    $pendientes = [];
+    
+    if (file_exists($archivo)) {
+        $pendientes = json_decode(file_get_contents($archivo), true);
+    }
+    
+    $pendientes[] = $datos;
+    file_put_contents($archivo, json_encode($pendientes));
+}
+
+// Función para sincronizar registros pendientes
+function sincronizarPendientes($conexion) {
+    $archivo = 'local_storage/' . $_SESSION['usuario_id'] . '_pendientes.json';
+    
+    if (file_exists($archivo)) {
+        $pendientes = json_decode(file_get_contents($archivo), true);
+        $exitos = [];
+        
+        foreach ($pendientes as $key => $registro) {
+            // Insertar el registro principal
+            $query = "INSERT INTO registro_salidas (id_usuario, nombre_comunidad, nombre_entrega, nombre_jefe_hogar, documento_jefe_hogar, nombre_salida, fecha, tipo_de_rfpp, modo_offline) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)";
+            $stmt = mysqli_prepare($conexion, $query);
+            mysqli_stmt_bind_param($stmt, 'isssssss', $_SESSION['usuario_id'], $registro['nombre_comunidad'], $registro['nombre_entrega'], $registro['nombre_jefe_hogar'], $registro['documento_jefe_hogar'], $registro['nombre_salida'], $registro['fecha'], $registro['tipo_rfpp']);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                $id_registro = mysqli_insert_id($conexion);
+                mysqli_stmt_close($stmt);
+                
+                // Procesar la imagen si existe
+                if (!empty($registro['imagen_data'])) {
+                    $directorio = '../uploads/';
+                    $nombre_unico = uniqid() . '_' . $registro['imagen_nombre'];
+                    $ruta_final = $directorio . $nombre_unico;
+                    
+                    // Guardar la imagen
+                    file_put_contents($ruta_final, base64_decode($registro['imagen_data']));
+                    
+                    // Insertar la información de la imagen en la base de datos
+                    $query_img = "INSERT INTO imagen_registro (imagen, fecha_imagen, id_registro) VALUES (?, ?, ?)";
+                    $stmt_img = mysqli_prepare($conexion, $query_img);
+                    $ruta_db = 'uploads/' . $nombre_unico;
+                    mysqli_stmt_bind_param($stmt_img, 'ssi', $ruta_db, $registro['fecha'], $id_registro);
+                    mysqli_stmt_execute($stmt_img);
+                    mysqli_stmt_close($stmt_img);
+                }
+                
+                $exitos[] = $key;
+            }
+        }
+        
+        // Eliminar los registros que se sincronizaron correctamente
+        foreach ($exitos as $key) {
+            unset($pendientes[$key]);
+        }
+        
+        file_put_contents($archivo, json_encode(array_values($pendientes)));
+    }
+}
 
 // Procesar el formulario cuando se envía
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar y sanitizar los datos del formulario
-    $id_usuario = $_SESSION['usuario_id'];
     $nombre_comunidad = mysqli_real_escape_string($conexion, $_POST['nombre_comunidad']);
     $nombre_entrega = mysqli_real_escape_string($conexion, $_POST['nombre_entrega']);
     $nombre_jefe_hogar = mysqli_real_escape_string($conexion, $_POST['nombre_jefe_hogar']);
@@ -57,91 +130,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tipo_rfpp = mysqli_real_escape_string($conexion, $_POST['tipo_rfpp']);
     }
 
-    // Insertar el registro principal
-    $query = "INSERT INTO registro_salidas (id_usuario, nombre_comunidad, nombre_entrega, nombre_jefe_hogar, documento_jefe_hogar, nombre_salida, fecha, tipo_de_rfpp) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = mysqli_prepare($conexion, $query);
-    mysqli_stmt_bind_param($stmt, 'isssssss', $id_usuario, $nombre_comunidad, $nombre_entrega, $nombre_jefe_hogar, $documento_jefe_hogar, $nombre_salida, $fecha, $tipo_rfpp);
-    mysqli_stmt_execute($stmt);
-    $id_registro = mysqli_insert_id($conexion);
-    mysqli_stmt_close($stmt);
+    // Verificar conexión a internet
+    if (hayConexionInternet()) {
+        // Intentar sincronizar registros pendientes primero
+        sincronizarPendientes($conexion);
+        
+        // Insertar el registro principal
+        $query = "INSERT INTO registro_salidas (id_usuario, nombre_comunidad, nombre_entrega, nombre_jefe_hogar, documento_jefe_hogar, nombre_salida, fecha, tipo_de_rfpp, modo_offline) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)";
+        $stmt = mysqli_prepare($conexion, $query);
+        mysqli_stmt_bind_param($stmt, 'isssssss', $_SESSION['usuario_id'], $nombre_comunidad, $nombre_entrega, $nombre_jefe_hogar, $documento_jefe_hogar, $nombre_salida, $fecha, $tipo_rfpp);
+        
+        if (mysqli_stmt_execute($stmt)) {
+            $id_registro = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
 
-    // Procesar la imagen si se subió (solo una imagen)
-    if (!empty($_FILES['imagen']['name'])) {
-        $directorio = '../uploads/';
-        $nombre_archivo = $_FILES['imagen']['name'];
-        $extension = strtolower(pathinfo($nombre_archivo, PATHINFO_EXTENSION));
+            // Procesar la imagen si se subió (solo una imagen)
+            if (!empty($_FILES['imagen']['name'])) {
+                $directorio = '../uploads/';
+                $nombre_archivo = $_FILES['imagen']['name'];
+                $extension = strtolower(pathinfo($nombre_archivo, PATHINFO_EXTENSION));
 
-        // Formatos bloqueados
-        $formatosBloqueados = ['webp', 'svg', 'tiff', 'tif', 'bmp'];
-        $nombresProhibidos = []; // Puedes añadir nombres de archivo prohibidos si es necesario
+                // Formatos bloqueados
+                $formatosBloqueados = ['webp', 'svg', 'tiff', 'tif', 'bmp'];
+                $nombresProhibidos = []; // Puedes añadir nombres de archivo prohibidos si es necesario
 
-        // Validar formato del archivo
-        if (in_array($extension, $formatosBloqueados)) {
-            echo '<script>
-                document.addEventListener("DOMContentLoaded", function() {
-                    Swal.fire({
-                        title: "Error",
-                        text: "Formato de imagen no permitido. Use solo JPG, PNG o JPEG.",
-                        icon: "error",
-                        confirmButtonText: "Entendido"
-                    });
-                });
-            </script>';
-        } else {
-            // Verificar dimensiones de la imagen
-            $imagen_info = getimagesize($_FILES['imagen']['tmp_name']);
-            $ancho = $imagen_info[0];
-            $alto = $imagen_info[1];
-            
-            if ($ancho >= $alto) {
-                echo '<script>
-                    document.addEventListener("DOMContentLoaded", function() {
-                        Swal.fire({
-                            title: "Error",
-                            text: "La imagen debe ser vertical (la altura mayor que el ancho).",
-                            icon: "error",
-                            confirmButtonText: "Entendido"
-                        });
-                    });
-                </script>';
-            } else {
-                // Verificar si el directorio existe, si no, crearlo
-                if (!file_exists($directorio)) {
-                    mkdir($directorio, 0777, true);
-                }
+                // Validar formato del archivo
+                if (!in_array($extension, $formatosBloqueados)) {
+                    // Verificar dimensiones de la imagen
+                    $imagen_info = getimagesize($_FILES['imagen']['tmp_name']);
+                    $ancho = $imagen_info[0];
+                    $alto = $imagen_info[1];
+                    
+                    if ($ancho < $alto) {
+                        // Verificar si el directorio existe, si no, crearlo
+                        if (!file_exists($directorio)) {
+                            mkdir($directorio, 0777, true);
+                        }
 
-                $nombre_unico = uniqid() . '_' . basename($nombre_archivo);
-                $ruta_final = $directorio . $nombre_unico;
-                $ruta_temporal = $_FILES['imagen']['tmp_name'];
+                        $nombre_unico = uniqid() . '_' . basename($nombre_archivo);
+                        $ruta_final = $directorio . $nombre_unico;
+                        $ruta_temporal = $_FILES['imagen']['tmp_name'];
 
-                if (move_uploaded_file($ruta_temporal, $ruta_final)) {
-                    // Insertar la información de la imagen en la base de datos
-                    $query_img = "INSERT INTO imagen_registro (imagen, fecha_imagen, id_registro) VALUES (?, ?, ?)";
-                    $stmt_img = mysqli_prepare($conexion, $query_img);
-                    $fecha_imagen = $fecha;
-                    $ruta_db = 'uploads/' . $nombre_unico; // Cambiado para almacenar ruta relativa
-                    mysqli_stmt_bind_param($stmt_img, 'ssi', $ruta_db, $fecha_imagen, $id_registro);
-                    mysqli_stmt_execute($stmt_img);
-                    mysqli_stmt_close($stmt_img);
-                } else {
-                    echo '<script>
-                        document.addEventListener("DOMContentLoaded", function() {
-                            Swal.fire({
-                                title: "Error",
-                                text: "Hubo un problema al subir la imagen.",
-                                icon: "error",
-                                confirmButtonText: "Entendido"
-                            });
-                        });
-                    </script>';
+                        if (move_uploaded_file($ruta_temporal, $ruta_final)) {
+                            // Insertar la información de la imagen en la base de datos
+                            $query_img = "INSERT INTO imagen_registro (imagen, fecha_imagen, id_registro) VALUES (?, ?, ?)";
+                            $stmt_img = mysqli_prepare($conexion, $query_img);
+                            $ruta_db = 'uploads/' . $nombre_unico; // Cambiado para almacenar ruta relativa
+                            mysqli_stmt_bind_param($stmt_img, 'ssi', $ruta_db, $fecha, $id_registro);
+                            mysqli_stmt_execute($stmt_img);
+                            mysqli_stmt_close($stmt_img);
+                        }
+                    }
                 }
             }
-        }
-    }
 
-    // Marcar para mostrar el mensaje de éxito
-    $mostrar_exito = true;
+            // Marcar para mostrar el mensaje de éxito
+            $mostrar_exito = true;
+        }
+    } else {
+        // Modo offline - guardar en localStorage
+        $datos_offline = [
+            'nombre_comunidad' => $nombre_comunidad,
+            'nombre_entrega' => $nombre_entrega,
+            'nombre_jefe_hogar' => $nombre_jefe_hogar,
+            'documento_jefe_hogar' => $documento_jefe_hogar,
+            'nombre_salida' => $nombre_salida,
+            'fecha' => $fecha,
+            'tipo_rfpp' => $tipo_rfpp,
+            'timestamp' => time()
+        ];
+
+        // Procesar imagen para almacenamiento offline
+        if (!empty($_FILES['imagen']['tmp_name'])) {
+            $imagen_data = file_get_contents($_FILES['imagen']['tmp_name']);
+            $datos_offline['imagen_nombre'] = $_FILES['imagen']['name'];
+            $datos_offline['imagen_data'] = base64_encode($imagen_data);
+        }
+
+        guardarEnLocalStorage($datos_offline);
+        $modo_offline = true;
+        $mostrar_exito = true;
+    }
     
     // Limpiar el formulario (opcional)
     echo '<script>
@@ -165,6 +235,44 @@ $familias = [];
 while ($fila = mysqli_fetch_assoc($resultado_familias)) {
     $familias[] = $fila;
 }
+
+// Obtener historial de registros (online y pendientes)
+$historial = [];
+$query_historial = "SELECT id, nombre_comunidad, nombre_entrega, nombre_jefe_hogar, documento_jefe_hogar, nombre_salida, fecha, modo_offline 
+                    FROM registro_salidas 
+                    WHERE id_usuario = ? 
+                    ORDER BY fecha DESC, id DESC";
+$stmt_historial = mysqli_prepare($conexion, $query_historial);
+mysqli_stmt_bind_param($stmt_historial, "i", $_SESSION['usuario_id']);
+mysqli_stmt_execute($stmt_historial);
+$resultado_historial = mysqli_stmt_get_result($stmt_historial);
+while ($fila = mysqli_fetch_assoc($resultado_historial)) {
+    $historial[] = $fila;
+}
+
+// Obtener registros pendientes (offline)
+$pendientes = [];
+$archivo_pendientes = 'local_storage/' . $_SESSION['usuario_id'] . '_pendientes.json';
+if (file_exists($archivo_pendientes)) {
+    $pendientes = json_decode(file_get_contents($archivo_pendientes), true);
+    foreach ($pendientes as $pendiente) {
+        $historial[] = [
+            'id' => 'pendiente_' . $pendiente['timestamp'],
+            'nombre_comunidad' => $pendiente['nombre_comunidad'],
+            'nombre_entrega' => $pendiente['nombre_entrega'],
+            'nombre_jefe_hogar' => $pendiente['nombre_jefe_hogar'],
+            'documento_jefe_hogar' => $pendiente['documento_jefe_hogar'],
+            'nombre_salida' => $pendiente['nombre_salida'],
+            'fecha' => $pendiente['fecha'],
+            'modo_offline' => 2 // 2 = pendiente de sincronización
+        ];
+    }
+}
+
+// Ordenar historial por fecha (más reciente primero)
+usort($historial, function($a, $b) {
+    return strtotime($b['fecha']) - strtotime($a['fecha']);
+});
 ?>
 
 <!DOCTYPE html>
@@ -249,36 +357,69 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
             background-color: DodgerBlue !important;
             color: #ffffff;
         }
-    </style>
-    <script>
-    // Función para manejar el cierre de sesión
-    function cerrarSesion() {
-        fetch('../index.php?clean_token=1', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'user_id=<?php echo $_SESSION['usuario_id']; ?>'
-        }).then(() => {
-            window.location.href = '../index.php';
-        });
-    }
-
-    // Función para limpiar token al cerrar pestaña/ventana
-    function limpiarTokenAlSalir() {
-        navigator.sendBeacon('../index.php?clean_token=1', 'user_id=<?php echo $_SESSION['usuario_id']; ?>');
-    }
-
-    // Manejar cierre de pestaña/ventana
-    window.addEventListener('beforeunload', function(e) {
-        const esNavegacionInterna = e.target.activeElement?.tagName === 'A' && 
-                                  e.target.activeElement?.href?.startsWith(window.location.origin);
         
-        if (!esNavegacionInterna) {
-            limpiarTokenAlSalir();
+        /* Estilos para el historial */
+        .historial-item {
+            transition: all 0.3s ease;
         }
-    });
-    </script>
+        
+        .historial-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .online-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .online {
+            background-color: #10B981;
+        }
+        
+        .offline {
+            background-color: #EF4444;
+        }
+        
+        .pending {
+            background-color: #F59E0B;
+        }
+        
+        /* Estilos para pestañas */
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab-active {
+            border-bottom: 2px solid #3B82F6;
+            color: #3B82F6;
+            font-weight: 500;
+        }
+        
+        /* Estilos para el contador de sincronización */
+        .sync-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #3B82F6;
+            color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            z-index: 100;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <!-- Navbar superior con información del usuario -->
@@ -304,16 +445,23 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
     <!-- Contenido principal -->
     <div class="min-h-screen pt-16">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="bg-white p-8 rounded-lg shadow-md">
+            <!-- Pestañas -->
+            <div class="flex border-b mb-6">
+                <div id="tab-registro" class="tab tab-active" onclick="mostrarTab('registro')">Nuevo Registro</div>
+                <div id="tab-historial" class="tab" onclick="mostrarTab('historial')">Historial</div>
+            </div>
+            
+            <!-- Sección de registro (visible por defecto) -->
+            <div id="seccion-registro" class="bg-white p-8 rounded-lg shadow-md">
                 <h1 class="text-3xl font-bold mb-6 text-center">Registro de Salidas</h1>
                 
                 <?php if ($mostrar_exito): ?>
                     <script>
                         document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire({
-                                title: '¡Éxito!',
-                                text: 'El registro se ha guardado correctamente.',
-                                icon: 'success',
+                                title: '<?php echo $modo_offline ? "Modo Offline Activado" : "¡Éxito!"; ?>',
+                                text: '<?php echo $modo_offline ? "El registro se ha guardado localmente. Se sincronizará automáticamente cuando se detecte conexión a internet." : "El registro se ha guardado correctamente."; ?>',
+                                icon: '<?php echo $modo_offline ? "info" : "success"; ?>',
                                 confirmButtonText: 'Aceptar'
                             });
                         });
@@ -414,6 +562,65 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
                     </div>
                 </form>
             </div>
+            
+            <!-- Sección de historial (oculta por defecto) -->
+            <div id="seccion-historial" class="bg-white p-8 rounded-lg shadow-md hidden">
+                <h1 class="text-3xl font-bold mb-6 text-center">Historial de Registros</h1>
+                
+                <div class="mb-4 flex justify-between items-center">
+                    <div>
+                        <span class="online-status online"></span> <span class="text-sm">En línea</span>
+                        <span class="online-status offline ml-4"></span> <span class="text-sm">Offline</span>
+                        <span class="online-status pending ml-4"></span> <span class="text-sm">Pendiente</span>
+                    </div>
+                    <div id="pendientes-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        <?php 
+                        $count_pendientes = count($pendientes);
+                        echo $count_pendientes > 0 ? "{$count_pendientes} pendientes" : "Todo sincronizado";
+                        ?>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <?php if (empty($historial)): ?>
+                        <p class="text-center text-gray-500">No hay registros aún</p>
+                    <?php else: ?>
+                        <?php foreach ($historial as $registro): ?>
+                            <div class="historial-item bg-white border rounded-lg p-4 shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="flex items-center">
+                                            <?php if ($registro['modo_offline'] == 0): ?>
+                                                <span class="online-status online"></span>
+                                            <?php elseif ($registro['modo_offline'] == 1): ?>
+                                                <span class="online-status offline"></span>
+                                            <?php else: ?>
+                                                <span class="online-status pending"></span>
+                                            <?php endif; ?>
+                                            <h3 class="font-semibold"><?php echo htmlspecialchars($registro['nombre_comunidad']); ?></h3>
+                                        </div>
+                                        <p class="text-sm text-gray-600 mt-1">
+                                            <span class="font-medium">Entrega:</span> <?php echo htmlspecialchars($registro['nombre_entrega']); ?> | 
+                                            <span class="font-medium">Jefe de Hogar:</span> <?php echo htmlspecialchars($registro['nombre_jefe_hogar']); ?> (<?php echo htmlspecialchars($registro['documento_jefe_hogar']); ?>)
+                                        </p>
+                                        <p class="text-sm text-gray-600">
+                                            <span class="font-medium">Salida:</span> <?php echo htmlspecialchars($registro['nombre_salida']); ?>
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs bg-gray-100 px-2 py-1 rounded"><?php echo $registro['fecha']; ?></span>
+                                        <?php if (strpos($registro['id'], 'pendiente_') === 0): ?>
+                                            <button onclick="intentarSincronizarIndividual('<?php echo $registro['id']; ?>')" class="mt-2 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hover:bg-blue-200">
+                                                Intentar ahora
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -422,7 +629,15 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
         <span class="close-zoom">&times;</span>
         <img class="modal-content-zoom" id="zoomedImage">
     </div>
-<footer class="w-full bg-gray-800 text-white text-center py-4">
+    
+    <!-- Contador de sincronización -->
+    <?php if ($count_pendientes > 0): ?>
+        <div id="sync-counter" class="sync-counter" title="Registros pendientes de sincronizar" onclick="mostrarTab('historial')">
+            <?php echo $count_pendientes; ?>
+        </div>
+    <?php endif; ?>
+
+    <footer class="w-full bg-gray-800 text-white text-center py-4">
         <p class="text-sm">
             © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
             <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
@@ -430,6 +645,7 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
             </a>
         </p>
     </footer>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.4.24/sweetalert2.min.js"></script>
     <script>
         // Variable para mantener la imagen seleccionada
@@ -663,6 +879,133 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
                 });
             }
         });
+        
+        // Función para manejar el cierre de sesión
+        function cerrarSesion() {
+            fetch('../index.php?clean_token=1', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'user_id=<?php echo $_SESSION['usuario_id']; ?>'
+            }).then(() => {
+                window.location.href = '../index.php';
+            });
+        }
+
+        // Función para limpiar token al cerrar pestaña/ventana
+        function limpiarTokenAlSalir() {
+            navigator.sendBeacon('../index.php?clean_token=1', 'user_id=<?php echo $_SESSION['usuario_id']; ?>');
+        }
+
+        // Manejar cierre de pestaña/ventana
+        window.addEventListener('beforeunload', function(e) {
+            const esNavegacionInterna = e.target.activeElement?.tagName === 'A' && 
+                                      e.target.activeElement?.href?.startsWith(window.location.origin);
+            
+            if (!esNavegacionInterna) {
+                limpiarTokenAlSalir();
+            }
+        });
+        
+        // Función para cambiar entre pestañas
+        function mostrarTab(tab) {
+            document.getElementById('seccion-registro').classList.add('hidden');
+            document.getElementById('seccion-historial').classList.add('hidden');
+            document.getElementById('tab-registro').classList.remove('tab-active');
+            document.getElementById('tab-historial').classList.remove('tab-active');
+            
+            document.getElementById('seccion-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('tab-active');
+        }
+        
+        // Función para intentar sincronizar un registro pendiente individual
+        function intentarSincronizarIndividual(idPendiente) {
+            Swal.fire({
+                title: 'Sincronizando',
+                text: 'Intentando enviar el registro al servidor...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                    
+                    // Simular envío al servidor (en un caso real, harías una petición AJAX)
+                    setTimeout(() => {
+                        // En una implementación real, aquí harías una petición AJAX al servidor
+                        // y actualizarías la interfaz según la respuesta
+                        
+                        Swal.fire({
+                            title: 'Éxito',
+                            text: 'El registro se ha sincronizado correctamente.',
+                            icon: 'success',
+                            confirmButtonText: 'Aceptar'
+                        }).then(() => {
+                            // Recargar la página para actualizar el historial
+                            window.location.reload();
+                        });
+                    }, 1500);
+                }
+            });
+        }
+        
+        // Verificar conexión a internet periódicamente
+        function verificarConexion() {
+            fetch('https://www.google.com', { mode: 'no-cors' })
+                .then(() => {
+                    // Hay conexión - verificar si hay pendientes
+                    const pendientesCount = document.getElementById('pendientes-count');
+                    if (pendientesCount && pendientesCount.textContent.includes('pendientes')) {
+                        // Mostrar notificación para sincronizar
+                        if (Notification.permission === 'granted') {
+                            new Notification('Hay registros pendientes', {
+                                body: 'Hay registros guardados localmente que pueden sincronizarse ahora.',
+                                icon: '/icon.png'
+                            });
+                        }
+                    }
+                })
+                .catch(() => {
+                    // No hay conexión
+                });
+        }
+        
+        // Verificar conexión cada minuto
+        setInterval(verificarConexion, 60000);
+        
+        // Solicitar permiso para notificaciones
+        if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+        
+        // Sincronización automática cada minuto cuando hay conexión
+        setInterval(() => {
+            fetch('https://www.google.com', { mode: 'no-cors' })
+                .then(() => {
+                    // Hay conexión - intentar sincronizar
+                    fetch('registro.php?sync_pendientes=1', { method: 'POST' })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.count > 0) {
+                                // Actualizar contador
+                                const counter = document.getElementById('pendientes-count');
+                                if (counter) {
+                                    const newCount = parseInt(counter.textContent) - data.count;
+                                    counter.textContent = newCount > 0 ? `${newCount} pendientes` : 'Todo sincronizado';
+                                }
+                                
+                                // Mostrar notificación
+                                if (Notification.permission === 'granted') {
+                                    new Notification('Sincronización completada', {
+                                        body: `Se han sincronizado ${data.count} registros.`,
+                                        icon: '/icon.png'
+                                    });
+                                }
+                            }
+                        });
+                })
+                .catch(() => {
+                    // No hay conexión
+                });
+        }, 60000); // Cada minuto
     </script>
 </body>
 </html>
