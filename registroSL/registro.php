@@ -258,19 +258,38 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
     $familias[] = $fila;
 }
 
-// Obtener historial de registros
+// Obtener historial de registros (online y pendientes)
 $historial = [];
-$query_historial = "SELECT id, nombre_comunidad, nombre_entrega, nombre_jefe_hogar, documento_jefe_hogar, nombre_salida, fecha, modo_offline 
-                    FROM registro_salidas 
-                    WHERE id_usuario = ? 
-                    ORDER BY fecha DESC, id DESC";
+$query_historial = "SELECT 
+    id_registro, 
+    nombre_comunidad, 
+    nombre_entrega, 
+    nombre_jefe_hogar, 
+    documento_jefe_hogar, 
+    nombre_salida, 
+    fecha, 
+    IFNULL(modo_offline, 0) AS modo_offline 
+    FROM registro_salidas 
+    WHERE id_usuario = ? 
+    ORDER BY fecha DESC, id_registro DESC";
+
 $stmt_historial = mysqli_prepare($conexion, $query_historial);
+if (!$stmt_historial) {
+    die("Error al preparar la consulta: " . mysqli_error($conexion));
+}
+
 mysqli_stmt_bind_param($stmt_historial, "i", $_SESSION['usuario_id']);
-mysqli_stmt_execute($stmt_historial);
+if (!mysqli_stmt_execute($stmt_historial)) {
+    die("Error al ejecutar la consulta: " . mysqli_stmt_error($stmt_historial));
+}
+
 $resultado_historial = mysqli_stmt_get_result($stmt_historial);
 while ($fila = mysqli_fetch_assoc($resultado_historial)) {
+    // Asegurar que modo_offline tenga un valor por defecto
+    $fila['modo_offline'] = isset($fila['modo_offline']) ? (int)$fila['modo_offline'] : 0;
     $historial[] = $fila;
 }
+
 
 // Obtener registros pendientes
 $pendientes = [];
