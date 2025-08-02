@@ -1,9 +1,9 @@
 <?php
 
-$host = "localhost";
-$usuario = "root";
-$contrasena = "";
-$base_de_datos = "gestion_registros";
+$host = "mysql.hostinger.com";
+$usuario = "u680910350_Josehector";
+$contrasena = "HectorJose2302";
+$base_de_datos = "u680910350_Gestionregi";
 
 // Establecer conexión sin especificar el puerto (usa el puerto por defecto 3306)
 $conexion = mysqli_connect($host, $usuario, $contrasena, $base_de_datos);
