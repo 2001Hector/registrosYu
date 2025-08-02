@@ -1,0 +1,137 @@
+<?php
+session_start();
+include('db.php');
+
+// Mostrar errores para desarrollo
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Manejar limpieza de token si viene por GET/POST
+if (isset($_GET['clean_token'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id'])) {
+        // Verificar si no es admin antes de limpiar el token
+        $check_sql = "SELECT correo FROM usuarios WHERE id = ?";
+        $check_stmt = mysqli_prepare($conexion, $check_sql);
+        mysqli_stmt_bind_param($check_stmt, "i", $_POST['user_id']);
+        mysqli_stmt_execute($check_stmt);
+        $user_data = mysqli_fetch_assoc(mysqli_stmt_get_result($check_stmt));
+        
+        if ($user_data && $user_data['correo'] !== 'admin@admin.com') {
+            $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
+            mysqli_stmt_bind_param($clean_stmt, "i", $_POST['user_id']);
+            mysqli_stmt_execute($clean_stmt);
+        }
+        exit();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_GET['clean_token'])) {
+    $usuario = trim($_POST['usuario']);
+    $contrasena = trim($_POST['contraseña']);
+
+    if (empty($usuario) || empty($contrasena)) {
+        $error = "Usuario y contraseña son requeridos";
+    } else {
+        $sql = "SELECT id, nombre, contraseña, estado_pago, correo, fecha_inicio_pago, fecha_fin_pago, session_token FROM usuarios WHERE nombre = ? OR correo = ? LIMIT 1";
+        $stmt = mysqli_prepare($conexion, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $usuario, $usuario);
+        mysqli_stmt_execute($stmt);
+        $resultado = mysqli_stmt_get_result($stmt);
+
+        if ($resultado && mysqli_num_rows($resultado) > 0) {
+            $datos = mysqli_fetch_assoc($resultado);
+            
+            // Verificar si ya hay una sesión activa (excepto para admin)
+            $es_admin = ($datos['correo'] === 'admin@admin.com' || $datos['nombre'] === 'admin@admin.com');
+            
+            if (!empty($datos['session_token']) && !$es_admin) {
+                echo "<script>
+                    alert('Ya tienes una sesión activa. No puedes iniciar sesión en múltiples lugares simultáneamente.');
+                    window.location.href = 'index.php';
+                </script>";
+                exit();
+            }
+
+            if (password_verify($contrasena, $datos['contraseña'])) {
+                // Para admin: siempre session_token = NULL
+                // Para otros usuarios: generar token normal
+                $session_token = $es_admin ? null : bin2hex(random_bytes(32));
+                $now = date('Y-m-d H:i:s');
+                
+                // Actualizar la base de datos
+                $update_sql = "UPDATE usuarios SET session_token = ?, ultimo_acceso = ? WHERE id = ?";
+                $update_stmt = mysqli_prepare($conexion, $update_sql);
+                mysqli_stmt_bind_param($update_stmt, "ssi", $session_token, $now, $datos['id']);
+                mysqli_stmt_execute($update_stmt);
+                
+                // Configurar sesión
+                $_SESSION['logueado'] = true;
+                $_SESSION['usuario_id'] = $datos['id'];
+                $_SESSION['usuario_nombre'] = $datos['nombre'];
+                $_SESSION['usuario_correo'] = $datos['correo'];
+                $_SESSION['fecha_inicio_pago'] = $datos['fecha_inicio_pago'];
+                $_SESSION['fecha_fin_pago'] = $datos['fecha_fin_pago'];
+                $_SESSION['pagado'] = (strtolower(trim($datos['estado_pago'])) === 'pagado');
+                $_SESSION['session_token'] = $session_token;
+                $_SESSION['es_admin'] = $es_admin;
+
+                if ($_SESSION['es_admin']) {
+                    header("Location: admin.php");
+                    exit();
+                }
+
+                header("Location: " . ($_SESSION['pagado'] ? "cliente.php" : "pago.php"));
+                exit();
+            } else {
+                $error = "Contraseña incorrecta";
+            }
+        } else {
+            $error = "Usuario no encontrado";
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h2>
+            <?php if (isset($error)): ?>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    <?php echo $error; ?>
+                </div>
+            <?php endif; ?>
+            <form method="POST" class="space-y-4">
+                <div>
+                    <input type="text" name="usuario" placeholder="Usuario o correo" required
+                        class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <input type="password" name="contraseña" placeholder="Contraseña" required
+                        class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+    <footer class="w-full bg-gray-800 text-white text-center py-4 mt-10 fixed bottom-0">
+    <p class="text-sm">
+        © 2025 Todos los derechos reservados. ingeniero de Sistema : 
+        <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
+            Hector Jose Chamorro Nuñez
+        </a>
+    </p>
+</footer>
+</body>
+</html>
