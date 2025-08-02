@@ -63,16 +63,24 @@ if (isset($_SESSION['session_token'])) {
     }
 }
 
-// 4. Manejo de inactividad mejorado (30 minutos)
-if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
-    mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
-    mysqli_stmt_execute($clean_stmt);
-    session_destroy();
-    header("Location: ../index.php");
-    exit();
+// Verificar y actualizar tiempo de inactividad
+if (isset($_SESSION['last_activity'])) {
+    $inactive_time = 600; // 10 minutos en segundos
+    $session_life = time() - $_SESSION['last_activity'];
+    
+    if ($session_life > $inactive_time) {
+        // Limpiar session_token en la base de datos
+        if (isset($_SESSION['usuario_id'])) {
+            $conexion->query("UPDATE usuarios SET session_token = NULL WHERE id = {$_SESSION['usuario_id']}");
+        }
+        
+        session_unset();
+        session_destroy();
+        header("Location: ../index.php?timeout=1");
+        exit();
+    }
 }
-$_SESSION['LAST_ACTIVITY'] = time();
+$_SESSION['last_activity'] = time();
 
 // 5. Actualizar último acceso
 $now = date('Y-m-d H:i:s');
