@@ -169,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
         
         if ($stmt->num_rows > 0) {
             $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, color_fila) 
-                      VALUES (?, ?, ?, ?)";
+                      VALUES (?, ?, ?)";
             $stmt = $conexion->prepare($query);
             $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $color_fila);
             $stmt->execute();
