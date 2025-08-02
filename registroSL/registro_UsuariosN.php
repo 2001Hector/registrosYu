@@ -146,128 +146,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Registro de Usuarios Familiares</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            flex: 1 0 auto;
+            padding-bottom: 60px; /* Ajusta según la altura de tu footer */
+        }
+        footer {
+            flex-shrink: 0;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 pb-16">
-    <!-- Navbar con botones -->
-    <nav class="bg-white shadow-md py-4 px-6">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-800">Registro Familiar</h1>
-            <div class="flex space-x-4">
-                <form method="POST" class="inline">
-                    <button type="submit" name="volver" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+<body class="bg-gray-100">
+    <div class="content">
+        <!-- Navbar con botones -->
+        <nav class="bg-white shadow-md py-4 px-6">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">Registro Familiar</h1>
+                <div class="flex space-x-4">
+                    <a href="../cliente.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                         <i class="fas fa-arrow-left mr-1"></i> Volver
-                    </button>
-                </form>
-                <form method="POST" class="inline">
-                    <button type="submit" name="personalizar" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition">
-                        <i class="fas fa-cog mr-1"></i> Personalizar
-                    </button>
+                    </a>
+                    <a href="personalizar.php.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                        <i class="fas fa-arrow-left mr-1"></i> personalizar
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto px-4 py-8">
+            <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
+                <?php if (isset($_SESSION['success'])): ?>
+                    <div class="mb-4 p-4 bg-green-100 text-green-700 rounded">
+                        <?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="mb-4 p-4 bg-red-100 text-red-700 rounded">
+                        <?= htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <form method="POST" action="">
+                    <!-- Datos del niño -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Niño</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-gray-700 mb-2">Nombre del Niño</label>
+                                <input type="text" name="nombre_nino" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
+                                <input type="text" name="tipo_cedula_nino" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Cédula</label>
+                                <input type="text" name="cedula_nino" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
+                                <input type="date" name="fecha_nacimiento_nino" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_nino')">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Edad</label>
+                                <input type="number" id="edad_nino" name="edad_nino" class="w-full px-4 py-2 border rounded-lg" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Datos del padre/tutor -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Padre/Tutor</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-gray-700 mb-2">Nombre del Padre/Tutor</label>
+                                <input type="text" name="nombre_padre" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
+                                <input type="text" name="tipo_cedula_padre" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Cédula</label>
+                                <input type="text" name="cedula_padre" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
+                                <input type="date" name="fecha_nacimiento_padre" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_padre')">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Edad</label>
+                                <input type="number" id="edad_padre" name="edad_padre" class="w-full px-4 py-2 border rounded-lg" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-2">Parentesco</label>
+                                <input type="text" name="parentesco" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos personalizados dinámicos -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-4">Campos Personalizados</h2>
+                        <div id="customFieldsContainer"></div>
+                        <button type="button" id="addCustomFieldBtn" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                            <i class="fas fa-plus mr-1"></i> Añadir Campo
+                        </button>
+                    </div>
+                    
+                    <!-- Fecha de ración familiar -->
+                    <div class="mb-6 text-center">
+                        <label class="block text-gray-700 mb-2">Fecha de Entrega de Ración Familiar</label>
+                        <input type="date" name="fecha_de_entrega_racion_familiar" class="px-4 py-2 border rounded-lg">
+                    </div>
+                    
+                    <div class="flex justify-end gap-4">
+                        <button type="reset" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                            <i class="fas fa-undo mr-1"></i> Limpiar
+                        </button>
+                        <button type="submit" name="registrar" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+                            <i class="fas fa-save mr-1"></i> Guardar
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
-    </nav>
-
-    <div class="container mx-auto px-4 py-8">
-        <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="mb-4 p-4 bg-green-100 text-green-700 rounded">
-                    <?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
-                </div>
-            <?php endif; ?>
-            
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="mb-4 p-4 bg-red-100 text-red-700 rounded">
-                    <?= htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
-                </div>
-            <?php endif; ?>
-            
-            <form method="POST" action="">
-                <!-- Datos del niño -->
-                <div class="mb-6">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Niño</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-gray-700 mb-2">Nombre del Niño</label>
-                            <input type="text" name="nombre_nino" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
-                            <input type="text" name="tipo_cedula_nino" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Cédula</label>
-                            <input type="text" name="cedula_nino" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
-                            <input type="date" name="fecha_nacimiento_nino" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_nino')">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Edad</label>
-                            <input type="number" id="edad_nino" name="edad_nino" class="w-full px-4 py-2 border rounded-lg" readonly>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Datos del padre/tutor -->
-                <div class="mb-6">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Padre/Tutor</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-gray-700 mb-2">Nombre del Padre/Tutor</label>
-                            <input type="text" name="nombre_padre" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
-                            <input type="text" name="tipo_cedula_padre" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Cédula</label>
-                            <input type="text" name="cedula_padre" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
-                            <input type="date" name="fecha_nacimiento_padre" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_padre')">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Edad</label>
-                            <input type="number" id="edad_padre" name="edad_padre" class="w-full px-4 py-2 border rounded-lg" readonly>
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 mb-2">Parentesco</label>
-                            <input type="text" name="parentesco" class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Campos personalizados dinámicos -->
-                <div class="mb-6">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Campos Personalizados</h2>
-                    <div id="customFieldsContainer"></div>
-                    <button type="button" id="addCustomFieldBtn" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-                        <i class="fas fa-plus mr-1"></i> Añadir Campo
-                    </button>
-                </div>
-                
-                <!-- Fecha de ración familiar -->
-                <div class="mb-6 text-center">
-                    <label class="block text-gray-700 mb-2">Fecha de Entrega de Ración Familiar</label>
-                    <input type="date" name="fecha_de_entrega_racion_familiar" class="px-4 py-2 border rounded-lg">
-                </div>
-                
-                <div class="flex justify-end gap-4">
-                    <button type="reset" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
-                        <i class="fas fa-undo mr-1"></i> Limpiar
-                    </button>
-                    <button type="submit" name="registrar" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
-                        <i class="fas fa-save mr-1"></i> Guardar
-                    </button>
-                </div>
-            </form>
-        </div>
     </div>
 
-    <footer class="w-full bg-gray-800 text-white text-center py-4 fixed bottom-0">
+    <footer class="w-full bg-gray-800 text-white text-center py-4">
         <p class="text-sm">
             © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
             <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
