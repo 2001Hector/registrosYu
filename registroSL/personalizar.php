@@ -158,7 +158,6 @@ foreach ($campos_personalizados as $campo) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
     $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
     $titulo_nota = $_POST['titulo_nota'] ?? '';
-    $contenido_nota = $_POST['contenido_nota'] ?? '';
     $color_fila = $_POST['color_fila'] ?? '#ffffff';
     
     if ($datos_familiares_id) {
@@ -169,10 +168,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
         $stmt->store_result();
         
         if ($stmt->num_rows > 0) {
-            $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, contenido_nota, color_fila) 
+            $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, color_fila) 
                       VALUES (?, ?, ?, ?)";
             $stmt = $conexion->prepare($query);
-            $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $contenido_nota, $color_fila);
+            $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $color_fila);
             $stmt->execute();
             $stmt->close();
             
@@ -656,13 +655,9 @@ if (!empty($busqueda)) {
                             <input type="text" name="titulo_nota" id="titulo_nota" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         </div>
                         
-                        <div class="mb-4">
-                            <label for="contenido_nota" class="block text-sm font-medium text-gray-700">Contenido de la nota</label>
-                            <textarea name="contenido_nota" id="contenido_nota" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
-                        </div>
                         
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Color de fila</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">🎨 Selección de Color de Fila 🌈✨</label>
                             <input type="hidden" name="color_fila" id="color_fila_selected" value="#ffffff">
                             <div class="grid grid-cols-5 gap-2">
                                 <!-- 10 colores fluorescentes brillantes -->
