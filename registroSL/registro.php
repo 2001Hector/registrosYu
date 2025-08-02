@@ -501,7 +501,7 @@ usort($historial, function($a, $b) {
                                         <span class="text-xs bg-gray-100 px-2 py-1 rounded"><?= $registro['fecha'] ?></span>
                                         <?php if (strpos($registro['id'], 'pendiente_') === 0): ?>
                                             <button onclick="intentarSincronizarIndividual('<?= $registro['id'] ?>')" class="mt-2 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hover:bg-blue-200">
-                                                Intentar ahora
+                                                Intentar ahoraa
                                             </button>
                                         <?php endif; ?>
                                     </div>
