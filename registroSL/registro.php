@@ -422,7 +422,14 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
         <span class="close-zoom">&times;</span>
         <img class="modal-content-zoom" id="zoomedImage">
     </div>
-
+<footer class="w-full bg-gray-800 text-white text-center py-4">
+        <p class="text-sm">
+            © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
+            <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
+                Hector Jose Chamorro Nuñez
+            </a>
+        </p>
+    </footer>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.4.24/sweetalert2.min.js"></script>
     <script>
         // Variable para mantener la imagen seleccionada

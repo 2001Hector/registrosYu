@@ -580,7 +580,14 @@ $all_ids_json = json_encode($all_ids);
             <span>Tu PDF se descargará en unos minutos. Por favor tenga paciencia.</span>
         </div>
     </div>
-
+<footer class="w-full bg-gray-800 text-white text-center py-4">
+        <p class="text-sm">
+            © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
+            <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
+                Hector Jose Chamorro Nuñez
+            </a>
+        </p>
+    </footer>
     <script>
     // Variables globales
     const allIds = <?= $all_ids_json ?>;

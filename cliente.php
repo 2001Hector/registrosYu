@@ -115,7 +115,7 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
                         Inicio: <?php echo $fecha_inicio; ?>
                     </span>
                     <span class="text-xs md:text-sm text-gray-500">
-                        Fin: <?php echo $fecha_fin; ?>
+                        Fin de pago: <?php echo $fecha_fin; ?>
                     </span>
                 </div>
                 
@@ -164,28 +164,30 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
         </div>
         <br><br>
         <div class="bg-green-50 p-6 rounded-lg shadow-md border border-green-100 transition-all hover:shadow-lg">
-            <a href="registroSL/registro.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                </svg>
-                Realizar registro
-            </a>
-            <br>
-            <a href="registroSL/registro_UsuariosN.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                </svg>
-                 Realizar registro de usuarios nuevos ESTA FUNCION TODAVIA ESTA EN BETA ASI QUE TIENE ALGUNOS ERRORES que se estan tratando
-            </a>
-            <br>
-            <a href="reportesPDF/reportesRegistros.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                </svg>
-                Descargar reportes de registros PDF
-            </a>
-        </div>
-    </div>
+    <!-- Registro principal -->
+    <a href="registroSL/registro.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Realizar registro
+    </a>
+    
+    <!-- Registro de usuarios nuevos -->
+    <a href="registroSL/registro_UsuariosN.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+        </svg>
+        Realizar registro de usuarios nuevos
+    </a>
+    
+    <!-- Reportes PDF -->
+    <a href="reportesPDF/reportesRegistros.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>
+        Descargar reportes de registros PDF
+    </a>
+</div>
      <footer class="w-full bg-gray-800 text-white text-center py-4">
         <p class="text-sm">
             © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
