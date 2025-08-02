@@ -145,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Usuarios Familiares</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         html, body {
@@ -173,9 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <a href="../cliente.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                         <i class="fas fa-arrow-left mr-1"></i> Volver
                     </a>
-                    <a href="personalizar.php.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                        <i class="fas fa-arrow-left mr-1"></i> personalizar
-                    </a>
+                    <a href="personalizar.php" class="inline-flex items-center px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-colors duration-300">
+  <i class="fas fa-paint-brush mr-2"></i> Personalizar
+</a>
                 </div>
             </div>
         </nav>
