@@ -467,12 +467,10 @@ if (!empty($busqueda)) {
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">Personalización de Usuarios</h1>
             <div class="flex items-center gap-4">
-                <a href="../registro_UsuariosN.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                <a href="registro_UsuariosN.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                     <i class="fas fa-arrow-left mr-1"></i> Volver
                 </a>
-                <a href="#" onclick="cerrarSesion(); return false;" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium">
-                        Cerrar Sesión
-                    </a>
+                
             </div>
         </div>
         
