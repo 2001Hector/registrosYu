@@ -29,15 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
             'nombre_nino' => trim($_POST['nombre_nino'] ?? ''),
             'tipo_cedula_nino' => trim($_POST['tipo_cedula_nino'] ?? ''),
             'cedula_nino' => trim($_POST['cedula_nino'] ?? ''),
-            'fecha_nacimiento_nino' => $_POST['fecha_nacimiento_nino'] ?? null,
-            'edad_nino' => $_POST['edad_nino'] ?? null,
+            'fecha_nacimiento_nino' => !empty($_POST['fecha_nacimiento_nino']) ? $_POST['fecha_nacimiento_nino'] : null,
+            'edad_nino' => !empty($_POST['edad_nino']) ? $_POST['edad_nino'] : null,
             'nombre_padre' => trim($_POST['nombre_padre'] ?? ''),
             'tipo_cedula_padre' => trim($_POST['tipo_cedula_padre'] ?? ''),
             'cedula_padre' => trim($_POST['cedula_padre'] ?? ''),
-            'fecha_nacimiento_padre' => $_POST['fecha_nacimiento_padre'] ?? null,
-            'edad_padre' => $_POST['edad_padre'] ?? null,
+            'fecha_nacimiento_padre' => !empty($_POST['fecha_nacimiento_padre']) ? $_POST['fecha_nacimiento_padre'] : null,
+            'edad_padre' => !empty($_POST['edad_padre']) ? $_POST['edad_padre'] : null,
             'parentesco' => trim($_POST['parentesco'] ?? ''),
-            'fecha_de_entrega_racion_familiar' => $_POST['fecha_de_entrega_racion_familiar'] ?? null
+            'fecha_de_entrega_racion_familiar' => !empty($_POST['fecha_de_entrega_racion_familiar']) ? $_POST['fecha_de_entrega_racion_familiar'] : null
         ];
 
         // Insertar datos principales
@@ -85,9 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
                     $query = "INSERT INTO campos_personalizados (datos_familiares_id, nombre_campo, descripcion_campo) 
                               VALUES (?, ?, ?)";
                     $stmt = $conexion->prepare($query);
+                    if (!$stmt) {
+                        throw new Exception("Error al preparar consulta de campos personalizados: " . $conexion->error);
+                    }
                     $stmt->bind_param("iss", $datos_familiares_id, $nombre, $descripcion);
                     if (!$stmt->execute()) {
-                        error_log("Error al guardar campo personalizado: " . $stmt->error);
+                        throw new Exception("Error al guardar campo personalizado: " . $stmt->error);
                     }
                     $stmt->close();
                 }
@@ -99,13 +102,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
         exit();
         
     } catch (Exception $e) {
-        $_SESSION['error'] = $e->getMessage();
+        $_SESSION['error'] = "Error: " . $e->getMessage();
         header("Location: ".$_SERVER['PHP_SELF']);
         exit();
     }
 }
-
-// [Resto del código de verificación de sesión y token...]
 ?>
 
 <!DOCTYPE html>
@@ -119,8 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- [Encabezado y mensajes de éxito/error...] -->
-        
         <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
             <h1 class="text-2xl font-bold text-gray-800 mb-6">Registro de Usuario Familiar</h1>
             
@@ -141,12 +140,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
                 <div class="mb-6">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Niño</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Todos los campos sin 'required' -->
                         <div>
                             <label class="block text-gray-700 mb-2">Nombre del Niño</label>
                             <input type="text" name="nombre_nino" class="w-full px-4 py-2 border rounded-lg">
                         </div>
-                        <!-- [Resto de campos del niño...] -->
+                        <div>
+                            <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
+                            <input type="text" name="tipo_cedula_nino" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Cédula</label>
+                            <input type="text" name="cedula_nino" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
+                            <input type="date" name="fecha_nacimiento_nino" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_nino')">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Edad</label>
+                            <input type="number" id="edad_nino" name="edad_nino" class="w-full px-4 py-2 border rounded-lg" readonly>
+                        </div>
                     </div>
                 </div>
                 
@@ -154,12 +167,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
                 <div class="mb-6">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Padre/Tutor</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Todos los campos sin 'required' -->
                         <div>
                             <label class="block text-gray-700 mb-2">Nombre del Padre/Tutor</label>
                             <input type="text" name="nombre_padre" class="w-full px-4 py-2 border rounded-lg">
                         </div>
-                        <!-- [Resto de campos del padre...] -->
+                        <div>
+                            <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
+                            <input type="text" name="tipo_cedula_padre" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Cédula</label>
+                            <input type="text" name="cedula_padre" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
+                            <input type="date" name="fecha_nacimiento_padre" class="w-full px-4 py-2 border rounded-lg" onchange="calcularEdad(this, 'edad_padre')">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Edad</label>
+                            <input type="number" id="edad_padre" name="edad_padre" class="w-full px-4 py-2 border rounded-lg" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Parentesco</label>
+                            <input type="text" name="parentesco" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
                     </div>
                 </div>
                 
@@ -172,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
                     </button>
                 </div>
                 
-                <!-- Fecha de ración familiar (con nombre corregido) -->
+                <!-- Fecha de ración familiar -->
                 <div class="mb-6 text-center">
                     <label class="block text-gray-700 mb-2">Fecha de Entrega de Ración Familiar</label>
                     <input type="date" name="fecha_de_entrega_racion_familiar" class="px-4 py-2 border rounded-lg">
@@ -191,7 +222,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
     </div>
 
     <script>
-        // [Script para campos dinámicos...]
         document.addEventListener('DOMContentLoaded', function() {
             const container = document.getElementById('customFieldsContainer');
             const addBtn = document.getElementById('addCustomFieldBtn');
@@ -225,7 +255,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
             });
         });
 
-        // Función para calcular edad
         function calcularEdad(fechaInput, edadInputId) {
             const fechaNacimiento = new Date(fechaInput.value);
             if (isNaN(fechaNacimiento.getTime())) return;
