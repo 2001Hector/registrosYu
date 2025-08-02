@@ -2,28 +2,28 @@
 require '../db.php';
 session_start();
 
-// Verificación de sesión
-if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true || 
-    !isset($_SESSION['usuario_id']) || !isset($_SESSION['pagado']) || $_SESSION['pagado'] !== true) {
+// 1. Verificación básica de sesión simplificada
+if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] || !isset($_SESSION['usuario_id'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'session_expired']);
+        exit();
+    }
     header("Location: ../index.php");
     exit();
 }
-if (isset($_GET['clean_token']) || isset($_POST['clean_token'])) {
-    session_start();
 
-    // Limpiar el token en la base de datos
+// 2. Manejo de limpieza de sesión
+if (isset($_GET['clean_token']) || isset($_POST['clean_token'])) {
     if (isset($_SESSION['usuario_id'])) {
-        require '../db.php';
         $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
         mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
         mysqli_stmt_execute($clean_stmt);
     }
     
-    // Destruir completamente la sesión
     session_unset();
     session_destroy();
     
-    // Limpiar la cookie de sesión
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
         setcookie(session_name(), '', time() - 42000,
@@ -32,18 +32,17 @@ if (isset($_GET['clean_token']) || isset($_POST['clean_token'])) {
         );
     }
     
-    // Responder adecuadamente según el método
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
-        exit;
-    } else {
-        header("Location: ../index.php");
         exit();
     }
+    header("Location: ../index.php");
+    exit();
 }
-// Verificación de token de sesión
-if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
+
+// 3. Verificación de token de sesión menos estricta
+if (isset($_SESSION['session_token'])) {
     $sql = "SELECT session_token FROM usuarios WHERE id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     mysqli_stmt_bind_param($stmt, "i", $_SESSION['usuario_id']);
@@ -52,7 +51,7 @@ if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
     
     if ($resultado && mysqli_num_rows($resultado) > 0) {
         $datos = mysqli_fetch_assoc($resultado);
-        if ($datos['session_token'] !== $_SESSION['session_token']) {
+        if ($datos['session_token'] !== $_SESSION['session_token'] && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             $update_sql = "UPDATE usuarios SET session_token = NULL WHERE id = ?";
             $update_stmt = mysqli_prepare($conexion, $update_sql);
             mysqli_stmt_bind_param($update_stmt, "i", $_SESSION['usuario_id']);
@@ -61,19 +60,11 @@ if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
             header("Location: ../index.php");
             exit();
         }
-    } else {
-        session_destroy();
-        header("Location: ../index.php");
-        exit();
     }
-} else {
-    session_destroy();
-    header("Location: ../index.php");
-    exit();
 }
 
-// Manejar inactividad (30 minutos)
-if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
+// 4. Manejo de inactividad mejorado (30 minutos)
+if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
     mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
     mysqli_stmt_execute($clean_stmt);
@@ -83,38 +74,12 @@ if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 
 }
 $_SESSION['LAST_ACTIVITY'] = time();
 
-// Actualizar último acceso
+// 5. Actualizar último acceso
 $now = date('Y-m-d H:i:s');
 $update_sql = "UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?";
 $update_stmt = mysqli_prepare($conexion, $update_sql);
 mysqli_stmt_bind_param($update_stmt, "si", $now, $_SESSION['usuario_id']);
 mysqli_stmt_execute($update_stmt);
-
-// Manejar solicitudes AJAX para obtener datos
-if (isset($_GET['ajax'])) {
-    header('Content-Type: application/json');
-    
-    if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true || !isset($_SESSION['usuario_id'])) {
-        echo json_encode(['error' => 'No autorizado']);
-        exit();
-    }
-
-    if ($_GET['ajax'] === 'datos_familiares' && isset($_GET['id'])) {
-        $id = (int)$_GET['id'];
-        $query = "SELECT * FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-        $stmt = $conexion->prepare($query);
-        $stmt->bind_param("ii", $id, $_SESSION['usuario_id']);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            echo json_encode($result->fetch_assoc());
-        } else {
-            echo json_encode(['error' => 'No encontrado']);
-        }
-        exit();
-    }
-}
 
 // Configuración de paginación
 $registrosPorPagina = 10;
@@ -124,13 +89,12 @@ $inicio = ($pagina - 1) * $registrosPorPagina;
 // Búsqueda en tiempo real
 $busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
 
-// Consulta base para usuarios con búsqueda en tiempo real
+// Consulta base para usuarios con búsqueda
 $query = "SELECT SQL_CALC_FOUND_ROWS df.* FROM datos_familiares df 
           WHERE df.usuario_id = ? ";
 $params = [$_SESSION['usuario_id']];
 $types = "i";
 
-// Aplicar filtros de búsqueda
 if (!empty($busqueda)) {
     $query .= "AND (df.nombre_nino LIKE ? OR df.nombre_padre LIKE ? OR df.cedula_nino LIKE ? OR df.cedula_padre LIKE ?) ";
     $params[] = "%$busqueda%";
@@ -156,11 +120,11 @@ if ($stmt) {
     $usuarios = [];
 }
 
-// Obtener total de registros para paginación
+// Obtener total de registros
 $totalRegistros = $conexion->query("SELECT FOUND_ROWS()")->fetch_row()[0];
 $totalPaginas = ceil($totalRegistros / $registrosPorPagina);
 
-// Obtener todos los campos personalizados para los usuarios del usuario actual
+// Obtener campos personalizados
 $query = "SELECT cp.*, df.nombre_nino, df.nombre_padre 
           FROM campos_personalizados cp
           JOIN datos_familiares df ON cp.datos_familiares_id = df.id
@@ -172,7 +136,7 @@ $stmt->execute();
 $campos_personalizados = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Agrupar campos personalizados por datos_familiares_id
+// Agrupar campos por familia
 $campos_por_familia = [];
 foreach ($campos_personalizados as $campo) {
     $datos_familiares_id = $campo['datos_familiares_id'];
@@ -182,7 +146,7 @@ foreach ($campos_personalizados as $campo) {
     $campos_por_familia[$datos_familiares_id][] = $campo;
 }
 
-// Obtener todos los nombres de campos personalizados únicos para crear columnas
+// Obtener nombres de campos únicos
 $nombres_campos = [];
 foreach ($campos_personalizados as $campo) {
     if (!in_array($campo['nombre_campo'], $nombres_campos)) {
@@ -191,101 +155,95 @@ foreach ($campos_personalizados as $campo) {
 }
 
 // Procesar formulario de nota personalizada
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['guardar_nota'])) {
-        $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
-        $titulo_nota = $_POST['titulo_nota'] ?? '';
-        $contenido_nota = $_POST['contenido_nota'] ?? '';
-        $color_fila = $_POST['color_fila'] ?? '#ffffff';
-        
-        if ($datos_familiares_id) {
-            // Verificar que el registro pertenece al usuario actual
-            $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-            $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
-            $stmt->execute();
-            $stmt->store_result();
-            
-            if ($stmt->num_rows > 0) {
-                $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, contenido_nota, color_fila) 
-                          VALUES (?, ?, ?, ?)";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $contenido_nota, $color_fila);
-                $stmt->execute();
-                $stmt->close();
-                
-                $_SESSION['success'] = "Nota personalizada guardada exitosamente";
-                header("Location: personalizar.php");
-                exit();
-            }
-            $stmt->close();
-        }
-    }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_nota'])) {
+    $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
+    $titulo_nota = $_POST['titulo_nota'] ?? '';
+    $contenido_nota = $_POST['contenido_nota'] ?? '';
+    $color_fila = $_POST['color_fila'] ?? '#ffffff';
     
-    // Procesar formulario de campo personalizado
-    if (isset($_POST['guardar_campo'])) {
-        $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
-        $nombre_campo = $_POST['nombre_campo'] ?? '';
-        $descripcion_campo = $_POST['descripcion_campo'] ?? '';
+    if ($datos_familiares_id) {
+        $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
+        $stmt = $conexion->prepare($query);
+        $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
+        $stmt->execute();
+        $stmt->store_result();
         
-        if ($datos_familiares_id && !empty($nombre_campo)) {
-            // Verificar que el registro pertenece al usuario actual
-            $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
+        if ($stmt->num_rows > 0) {
+            $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, contenido_nota, color_fila) 
+                      VALUES (?, ?, ?, ?)";
             $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
+            $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $contenido_nota, $color_fila);
             $stmt->execute();
-            $stmt->store_result();
-            
-            if ($stmt->num_rows > 0) {
-                $query = "INSERT INTO campos_personalizados (datos_familiares_id, nombre_campo, descripcion_campo) 
-                          VALUES (?, ?, ?)";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("iss", $datos_familiares_id, $nombre_campo, $descripcion_campo);
-                $stmt->execute();
-                $stmt->close();
-                
-                $_SESSION['success'] = "Campo personalizado guardado exitosamente";
-                header("Location: personalizar.php");
-                exit();
-            }
-            $stmt->close();
-        }
-    }
-    
-    // Procesar eliminación de registro
-    if (isset($_POST['eliminar_registro'])) {
-        $registro_id = $_POST['registro_id'] ?? null;
-        
-        if ($registro_id) {
-            // Verificar que el registro pertenece al usuario actual
-            $query = "DELETE FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-            $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $registro_id, $_SESSION['usuario_id']);
-            $stmt->execute();
-            
-            if ($stmt->affected_rows > 0) {
-                $_SESSION['success'] = "Registro eliminado exitosamente";
-                
-                // También eliminar notas y campos personalizados asociados
-                $query = "DELETE FROM notas_personalizadas WHERE datos_familiares_id = ?";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("i", $registro_id);
-                $stmt->execute();
-                
-                $query = "DELETE FROM campos_personalizados WHERE datos_familiares_id = ?";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("i", $registro_id);
-                $stmt->execute();
-            }
             $stmt->close();
             
+            $_SESSION['success'] = "Nota personalizada guardada exitosamente";
             header("Location: personalizar.php");
             exit();
         }
+        $stmt->close();
     }
 }
 
-// Obtener todas las notas personalizadas para los usuarios del usuario actual
+// Procesar formulario de campo personalizado
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_campo'])) {
+    $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
+    $nombre_campo = $_POST['nombre_campo'] ?? '';
+    $descripcion_campo = $_POST['descripcion_campo'] ?? '';
+    
+    if ($datos_familiares_id && !empty($nombre_campo)) {
+        $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
+        $stmt = $conexion->prepare($query);
+        $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
+        $stmt->execute();
+        $stmt->store_result();
+        
+        if ($stmt->num_rows > 0) {
+            $query = "INSERT INTO campos_personalizados (datos_familiares_id, nombre_campo, descripcion_campo) 
+                      VALUES (?, ?, ?)";
+            $stmt = $conexion->prepare($query);
+            $stmt->bind_param("iss", $datos_familiares_id, $nombre_campo, $descripcion_campo);
+            $stmt->execute();
+            $stmt->close();
+            
+            $_SESSION['success'] = "Campo personalizado guardado exitosamente";
+            header("Location: personalizar.php");
+            exit();
+        }
+        $stmt->close();
+    }
+}
+
+// Procesar eliminación de registro
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_registro'])) {
+    $registro_id = $_POST['registro_id'] ?? null;
+    
+    if ($registro_id) {
+        $query = "DELETE FROM datos_familiares WHERE id = ? AND usuario_id = ?";
+        $stmt = $conexion->prepare($query);
+        $stmt->bind_param("ii", $registro_id, $_SESSION['usuario_id']);
+        $stmt->execute();
+        
+        if ($stmt->affected_rows > 0) {
+            $_SESSION['success'] = "Registro eliminado exitosamente";
+            
+            $query = "DELETE FROM notas_personalizadas WHERE datos_familiares_id = ?";
+            $stmt = $conexion->prepare($query);
+            $stmt->bind_param("i", $registro_id);
+            $stmt->execute();
+            
+            $query = "DELETE FROM campos_personalizados WHERE datos_familiares_id = ?";
+            $stmt = $conexion->prepare($query);
+            $stmt->bind_param("i", $registro_id);
+            $stmt->execute();
+        }
+        $stmt->close();
+        
+        header("Location: personalizar.php");
+        exit();
+    }
+}
+
+// Obtener notas personalizadas
 $query = "SELECT np.*, df.nombre_nino, df.nombre_padre 
           FROM notas_personalizadas np
           JOIN datos_familiares df ON np.datos_familiares_id = df.id
@@ -327,46 +285,6 @@ if (!empty($busqueda)) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-<script>
-// Función mejorada para cerrar sesión
-function cerrarSesion() {
-    fetch('personalizar.php?clean_token=1', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'user_id=<?php echo $_SESSION['usuario_id']; ?>'
-    }).then(response => {
-        if (response.ok) {
-            // Redirigir después de limpiar la sesión
-            window.location.href = '../index.php';
-        } else {
-            console.error('Error al cerrar sesión');
-            window.location.href = '../index.php';
-        }
-    }).catch(error => {
-        console.error('Error de red:', error);
-        window.location.href = '../index.php';
-    });
-}
-
-// Manejar cierre de pestaña/ventana (opcional - no recomendado para producción)
-let isNavigating = false;
-
-document.addEventListener('click', function(e) {
-    if (e.target.tagName === 'A' || e.target.closest('a')) {
-        isNavigating = true;
-    }
-});
-
-window.addEventListener('beforeunload', function(e) {
-    if (!isNavigating) {
-        // Usar sendBeacon para mayor confiabilidad
-        const data = new Blob([`user_id=<?php echo $_SESSION['usuario_id']; ?>`], {type: 'application/x-www-form-urlencoded'});
-        navigator.sendBeacon('personalizar.php?clean_token=1', data);
-    }
-});
-</script>
     <style>
         .color-option {
             width: 30px;
@@ -460,7 +378,6 @@ window.addEventListener('beforeunload', function(e) {
                 display: block;
             }
         }
-        /* Estilo para el deslizador de paginación */
         .pagination-slider {
             overflow-x: auto;
             white-space: nowrap;
@@ -479,7 +396,6 @@ window.addEventListener('beforeunload', function(e) {
         .pagination-slider::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
-        /* Estilo para la tabla con scroll horizontal */
         .tabla-con-scroll {
             overflow-x: auto;
             white-space: nowrap;
@@ -503,6 +419,46 @@ window.addEventListener('beforeunload', function(e) {
         }
         .tabla-con-scroll::-webkit-scrollbar-thumb:hover {
             background: #555;
+        }
+        .bg-custom-1 {
+            background-color: #FF00FF;
+            box-shadow: 0 0 10px #FF00FF;
+        }
+        .bg-custom-2 {
+            background-color: #00FFFF;
+            box-shadow: 0 0 10px #00FFFF;
+        }
+        .bg-custom-3 {
+            background-color: #FFFF00;
+            box-shadow: 0 0 10px #FFFF00;
+        }
+        .bg-custom-4 {
+            background-color: #00FF00;
+            box-shadow: 0 0 10px #00FF00;
+        }
+        .bg-custom-5 {
+            background-color: #FF1493;
+            box-shadow: 0 0 10px #FF1493;
+        }
+        .bg-custom-6 {
+            background-color: #00BFFF;
+            box-shadow: 0 0 10px #00BFFF;
+        }
+        .bg-custom-7 {
+            background-color: #FF8C00;
+            box-shadow: 0 0 10px #FF8C00;
+        }
+        .bg-custom-8 {
+            background-color: #9400D3;
+            box-shadow: 0 0 10px #9400D3;
+        }
+        .bg-custom-9 {
+            background-color: #FF4500;
+            box-shadow: 0 0 10px #FF4500;
+        }
+        .bg-custom-10 {
+            background-color: #FF00FF;
+            box-shadow: 0 0 10px #FF00FF;
         }
     </style>
 </head>

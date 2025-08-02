@@ -157,7 +157,7 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
                 </svg>
-                 Realizar registro de usuarios nuevos
+                 Realizar registro de usuarios nuevos ESTA FUNCION TODAVIA ESTA EN BETA ASI QUE TIENE ALGUNOS ERRORES que se estan tratando
             </a>
             <br>
             <a href="reportesPDF/reportesRegistros.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
