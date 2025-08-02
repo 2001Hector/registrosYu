@@ -2,11 +2,15 @@
 require '../db.php';
 session_start();
 
-// 1. Verificación básica de sesión (versión simplificada)
+// Configuración para mostrar errores (quitar en producción)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// 1. Verificación de sesión
 if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] || 
     !isset($_SESSION['usuario_id']) || !isset($_SESSION['pagado']) || !$_SESSION['pagado']) {
     
-    // Manejo diferente para solicitudes POST/AJAX
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'session_expired']);
@@ -16,107 +20,96 @@ if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] ||
     exit();
 }
 
-// 2. Manejo prioritario de solicitudes POST
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Procesar formulario de nota personalizada
-    if (isset($_POST['guardar_nota'])) {
-        // Verificación adicional para POST
-        if (!isset($_SESSION['usuario_id'])) {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'session_expired']);
-            exit();
+// 2. Procesar formulario principal de registro
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar'])) {
+    try {
+        // Validar datos básicos
+        if (empty($_POST['nombre_nino']) || empty($_POST['nombre_padre'])) {
+            throw new Exception("Los nombres del niño y del padre son obligatorios");
+        }
+
+        // Preparar datos
+        $datos = [
+            'usuario_id' => $_SESSION['usuario_id'],
+            'nombre_nino' => trim($_POST['nombre_nino']),
+            'tipo_cedula_nino' => trim($_POST['tipo_cedula_nino'] ?? ''),
+            'cedula_nino' => trim($_POST['cedula_nino'] ?? ''),
+            'fecha_nacimiento_nino' => $_POST['fecha_nacimiento_nino'] ?? null,
+            'edad_nino' => $_POST['edad_nino'] ?? null,
+            'nombre_padre' => trim($_POST['nombre_padre']),
+            'tipo_cedula_padre' => trim($_POST['tipo_cedula_padre'] ?? ''),
+            'cedula_padre' => trim($_POST['cedula_padre'] ?? ''),
+            'fecha_nacimiento_padre' => $_POST['fecha_nacimiento_padre'] ?? null,
+            'edad_padre' => $_POST['edad_padre'] ?? null,
+            'parentesco' => trim($_POST['parentesco'] ?? ''),
+            'fecha_racion_familiar' => $_POST['fecha_racion_familiar'] ?? null
+        ];
+
+        // Insertar datos principales
+        $query = "INSERT INTO datos_familiares (usuario_id, nombre_nino, tipo_cedula_nino, cedula_nino, 
+                  fecha_nacimiento_nino, edad_nino, nombre_padre, tipo_cedula_padre, cedula_padre, 
+                  fecha_nacimiento_padre, edad_padre, parentesco, fecha_racion_familiar) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = $conexion->prepare($query);
+        if (!$stmt) {
+            throw new Exception("Error al preparar la consulta: " . $conexion->error);
         }
         
-        $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
-        $titulo_nota = $_POST['titulo_nota'] ?? '';
-        $contenido_nota = $_POST['contenido_nota'] ?? '';
-        $color_fila = $_POST['color_fila'] ?? '#ffffff';
+        $stmt->bind_param("issssissssiss", 
+            $datos['usuario_id'],
+            $datos['nombre_nino'],
+            $datos['tipo_cedula_nino'],
+            $datos['cedula_nino'],
+            $datos['fecha_nacimiento_nino'],
+            $datos['edad_nino'],
+            $datos['nombre_padre'],
+            $datos['tipo_cedula_padre'],
+            $datos['cedula_padre'],
+            $datos['fecha_nacimiento_padre'],
+            $datos['edad_padre'],
+            $datos['parentesco'],
+            $datos['fecha_racion_familiar']
+        );
         
-        if ($datos_familiares_id) {
-            $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-            $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
-            $stmt->execute();
-            $stmt->store_result();
-            
-            if ($stmt->num_rows > 0) {
-                $query = "INSERT INTO notas_personalizadas (datos_familiares_id, titulo_nota, contenido_nota, color_fila) 
-                          VALUES (?, ?, ?, ?)";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("isss", $datos_familiares_id, $titulo_nota, $contenido_nota, $color_fila);
-                $stmt->execute();
-                $stmt->close();
-                
-                $_SESSION['success'] = "Nota personalizada guardada exitosamente";
-                header("Location: personalizar.php");
-                exit();
+        if (!$stmt->execute()) {
+            throw new Exception("Error al guardar el registro: " . $stmt->error);
+        }
+        
+        $datos_familiares_id = $stmt->insert_id;
+        $stmt->close();
+        
+        // Procesar campos personalizados si existen
+        if (!empty($_POST['custom_field_name'])) {
+            foreach ($_POST['custom_field_name'] as $index => $nombre) {
+                $nombre = trim($nombre);
+                if (!empty($nombre)) {
+                    $descripcion = trim($_POST['custom_field_desc'][$index] ?? '');
+                    
+                    $query = "INSERT INTO campos_personalizados (datos_familiares_id, nombre_campo, descripcion_campo) 
+                              VALUES (?, ?, ?)";
+                    $stmt = $conexion->prepare($query);
+                    $stmt->bind_param("iss", $datos_familiares_id, $nombre, $descripcion);
+                    if (!$stmt->execute()) {
+                        error_log("Error al guardar campo personalizado: " . $stmt->error);
+                    }
+                    $stmt->close();
+                }
             }
-            $stmt->close();
         }
-    }
-    
-    // Procesar formulario de campo personalizado
-    if (isset($_POST['guardar_campo'])) {
-        $datos_familiares_id = $_POST['datos_familiares_id'] ?? null;
-        $nombre_campo = $_POST['nombre_campo'] ?? '';
-        $descripcion_campo = $_POST['descripcion_campo'] ?? '';
         
-        if ($datos_familiares_id && !empty($nombre_campo)) {
-            $query = "SELECT id FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-            $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $datos_familiares_id, $_SESSION['usuario_id']);
-            $stmt->execute();
-            $stmt->store_result();
-            
-            if ($stmt->num_rows > 0) {
-                $query = "INSERT INTO campos_personalizados (datos_familiares_id, nombre_campo, descripcion_campo) 
-                          VALUES (?, ?, ?)";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("iss", $datos_familiares_id, $nombre_campo, $descripcion_campo);
-                $stmt->execute();
-                $stmt->close();
-                
-                $_SESSION['success'] = "Campo personalizado guardado exitosamente";
-                header("Location: personalizar.php");
-                exit();
-            }
-            $stmt->close();
-        }
-    }
-    
-    // Procesar eliminación de registro
-    if (isset($_POST['eliminar_registro'])) {
-        $registro_id = $_POST['registro_id'] ?? null;
+        $_SESSION['success'] = "Registro guardado exitosamente";
+        header("Location: ".$_SERVER['PHP_SELF']);
+        exit();
         
-        if ($registro_id) {
-            $query = "DELETE FROM datos_familiares WHERE id = ? AND usuario_id = ?";
-            $stmt = $conexion->prepare($query);
-            $stmt->bind_param("ii", $registro_id, $_SESSION['usuario_id']);
-            $stmt->execute();
-            
-            if ($stmt->affected_rows > 0) {
-                $_SESSION['success'] = "Registro eliminado exitosamente";
-                
-                // Eliminar notas y campos asociados
-                $query = "DELETE FROM notas_personalizadas WHERE datos_familiares_id = ?";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("i", $registro_id);
-                $stmt->execute();
-                
-                $query = "DELETE FROM campos_personalizados WHERE datos_familiares_id = ?";
-                $stmt = $conexion->prepare($query);
-                $stmt->bind_param("i", $registro_id);
-                $stmt->execute();
-            }
-            $stmt->close();
-            
-            header("Location: personalizar.php");
-            exit();
-        }
+    } catch (Exception $e) {
+        $_SESSION['error'] = $e->getMessage();
+        header("Location: ".$_SERVER['PHP_SELF']);
+        exit();
     }
 }
 
-// 3. Verificación de token de sesión (menos agresiva)
+// 3. Verificación de token de sesión
 if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
     $sql = "SELECT session_token FROM usuarios WHERE id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
@@ -143,7 +136,7 @@ if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
     }
 }
 
-// 4. Manejo de inactividad mejorado
+// 4. Manejo de inactividad
 if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
@@ -154,7 +147,7 @@ if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 
         exit();
     }
 }
-$_SESSION['LAST_ACTIVITY'] = time(); // Actualizar en cada carga
+$_SESSION['LAST_ACTIVITY'] = time();
 
 // 5. Actualizar último acceso
 $now = date('Y-m-d H:i:s');
@@ -162,125 +155,19 @@ $update_sql = "UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?";
 $update_stmt = mysqli_prepare($conexion, $update_sql);
 mysqli_stmt_bind_param($update_stmt, "si", $now, $_SESSION['usuario_id']);
 mysqli_stmt_execute($update_stmt);
-
-// Configuración de paginación
-$registrosPorPagina = 10;
-$pagina = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-$inicio = ($pagina - 1) * $registrosPorPagina;
-
-// Búsqueda en tiempo real
-$busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
-
-// Consulta base para usuarios con búsqueda en tiempo real
-$query = "SELECT SQL_CALC_FOUND_ROWS df.* FROM datos_familiares df 
-          WHERE df.usuario_id = ? ";
-$params = [$_SESSION['usuario_id']];
-$types = "i";
-
-// Aplicar filtros de búsqueda
-if (!empty($busqueda)) {
-    $query .= "AND (df.nombre_nino LIKE ? OR df.nombre_padre LIKE ? OR df.cedula_nino LIKE ? OR df.cedula_padre LIKE ?) ";
-    $params[] = "%$busqueda%";
-    $params[] = "%$busqueda%";
-    $params[] = "%$busqueda%";
-    $params[] = "%$busqueda%";
-    $types .= "ssss";
-}
-
-$query .= "ORDER BY df.id DESC LIMIT ?, ?";
-$params[] = $inicio;
-$params[] = $registrosPorPagina;
-$types .= "ii";
-
-// Obtener usuarios con paginación
-$stmt = $conexion->prepare($query);
-if ($stmt) {
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $usuarios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
-} else {
-    $usuarios = [];
-}
-
-// Obtener total de registros para paginación
-$totalRegistros = $conexion->query("SELECT FOUND_ROWS()")->fetch_row()[0];
-$totalPaginas = ceil($totalRegistros / $registrosPorPagina);
-
-// Obtener todos los campos personalizados
-$query = "SELECT cp.*, df.nombre_nino, df.nombre_padre 
-          FROM campos_personalizados cp
-          JOIN datos_familiares df ON cp.datos_familiares_id = df.id
-          WHERE df.usuario_id = ?
-          ORDER BY cp.id DESC";
-$stmt = $conexion->prepare($query);
-$stmt->bind_param("i", $_SESSION['usuario_id']);
-$stmt->execute();
-$campos_personalizados = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-// Agrupar campos personalizados por datos_familiares_id
-$campos_por_familia = [];
-foreach ($campos_personalizados as $campo) {
-    $datos_familiares_id = $campo['datos_familiares_id'];
-    if (!isset($campos_por_familia[$datos_familiares_id])) {
-        $campos_por_familia[$datos_familiares_id] = [];
-    }
-    $campos_por_familia[$datos_familiares_id][] = $campo;
-}
-
-// Obtener todos los nombres de campos personalizados únicos
-$nombres_campos = [];
-foreach ($campos_personalizados as $campo) {
-    if (!in_array($campo['nombre_campo'], $nombres_campos)) {
-        $nombres_campos[] = $campo['nombre_campo'];
-    }
-}
-
-// Obtener todas las notas personalizadas
-$query = "SELECT np.*, df.nombre_nino, df.nombre_padre 
-          FROM notas_personalizadas np
-          JOIN datos_familiares df ON np.datos_familiares_id = df.id
-          WHERE df.usuario_id = ?
-          ORDER BY np.id DESC";
-$stmt = $conexion->prepare($query);
-$stmt->bind_param("i", $_SESSION['usuario_id']);
-$stmt->execute();
-$notas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-// Obtener sugerencias para autocompletado
-$sugerencias = [];
-if (!empty($busqueda)) {
-    $query = "SELECT DISTINCT nombre_nino, nombre_padre, cedula_nino, cedula_padre FROM datos_familiares WHERE usuario_id = ?";
-    $stmt = $conexion->prepare($query);
-    $stmt->bind_param("i", $_SESSION['usuario_id']);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
-        $sugerencias[] = $row['nombre_nino'];
-        $sugerencias[] = $row['nombre_padre'];
-        $sugerencias[] = $row['cedula_nino'];
-        $sugerencias[] = $row['cedula_padre'];
-    }
-    $stmt->close();
-    $sugerencias = array_unique($sugerencias);
-    $sugerencias = array_filter($sugerencias);
-}
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personalización de Usuarios</title>
+    <title>Registro de Usuarios Familiares</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
-    // Función mejorada para cerrar sesión
+    // Función para cerrar sesión
     function cerrarSesion() {
         fetch('personalizar.php?clean_token=1', {
             method: 'POST',
@@ -289,12 +176,7 @@ if (!empty($busqueda)) {
             },
             body: 'user_id=<?php echo $_SESSION['usuario_id']; ?>'
         }).then(response => {
-            if (response.ok) {
-                window.location.href = '../index.php';
-            } else {
-                console.error('Error al cerrar sesión');
-                window.location.href = '../index.php';
-            }
+            window.location.href = '../index.php';
         }).catch(error => {
             console.error('Error de red:', error);
             window.location.href = '../index.php';
@@ -321,22 +203,17 @@ if (!empty($busqueda)) {
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
-
             <h1 class="text-2xl font-bold text-gray-800 mb-4">Sistema de Registro</h1>
-
-<div class="flex items-center gap-3 mb-6">
-    <!-- Botón Volver -->
-    <a href="../cliente.php"
-       class="inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 transition duration-200">
-        <i class="fas fa-arrow-left mr-2"></i> Volver
-    </a>
-
-    <!-- Botón Cerrar sesión -->
-    <a href="#" onclick="cerrarSesion(); return false;"
-       class="inline-flex items-center px-4 py-2 bg-red-500 text-white font-medium rounded-lg shadow hover:bg-red-600 transition duration-200">
-        <i class="fas fa-sign-out-alt mr-2"></i> Cerrar sesión
-    </a>
-</div>
+            <div class="flex items-center gap-3 mb-6">
+                <a href="../cliente.php"
+                   class="inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 transition duration-200">
+                    <i class="fas fa-arrow-left mr-2"></i> Volver
+                </a>
+                <a href="#" onclick="cerrarSesion(); return false;"
+                   class="inline-flex items-center px-4 py-2 bg-red-500 text-white font-medium rounded-lg shadow hover:bg-red-600 transition duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Cerrar sesión
+                </a>
+            </div>
         </div>
         
         <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
@@ -344,43 +221,52 @@ if (!empty($busqueda)) {
             
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="mb-4 p-4 bg-green-100 text-green-700 rounded">
-                    <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+                    <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
                 </div>
             <?php endif; ?>
             
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="mb-4 p-4 bg-red-100 text-red-700 rounded">
-                    <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                    <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="registro_UsuariosN.php">
+            <form method="POST" action="">
                 <!-- Datos básicos del niño -->
                 <div class="mb-6">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Niño</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-gray-700 mb-2">Nombre del Niño</label>
-                            <input type="text" name="nombre_nino" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label class="block text-gray-700 mb-2">Nombre del Niño*</label>
+                            <input type="text" name="nombre_nino" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['nombre_nino']) ? htmlspecialchars($_POST['nombre_nino']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
-                            <input type="text" name="tipo_cedula_nino" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: V, E, P, J">
+                            <input type="text" name="tipo_cedula_nino" 
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Ej: V, E, P, J"
+                                   value="<?= isset($_POST['tipo_cedula_nino']) ? htmlspecialchars($_POST['tipo_cedula_nino']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Cédula del Niño</label>
-                            <input type="text" name="cedula_nino" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="text" name="cedula_nino" 
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['cedula_nino']) ? htmlspecialchars($_POST['cedula_nino']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
                             <input type="date" name="fecha_nacimiento_nino" id="fecha_nacimiento_nino" 
                                    onchange="calcularEdad(this, 'edad_nino')" 
-                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['fecha_nacimiento_nino']) ? htmlspecialchars($_POST['fecha_nacimiento_nino']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Edad</label>
                             <input type="number" name="edad_nino" id="edad_nino" readonly
-                                   class="w-full px-4 py-2 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="w-full px-4 py-2 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['edad_nino']) ? htmlspecialchars($_POST['edad_nino']) : '' ?>">
                         </div>
                     </div>
                 </div>
@@ -390,40 +276,78 @@ if (!empty($busqueda)) {
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Datos del Padre/Tutor</h2>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-gray-700 mb-2">Nombre del Padre/Tutor</label>
-                            <input type="text" name="nombre_padre" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label class="block text-gray-700 mb-2">Nombre del Padre/Tutor*</label>
+                            <input type="text" name="nombre_padre" required
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['nombre_padre']) ? htmlspecialchars($_POST['nombre_padre']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Tipo de Cédula</label>
-                            <input type="text" name="tipo_cedula_padre" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: V, E, P, J">
+                            <input type="text" name="tipo_cedula_padre" 
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Ej: V, E, P, J"
+                                   value="<?= isset($_POST['tipo_cedula_padre']) ? htmlspecialchars($_POST['tipo_cedula_padre']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Cédula del Padre/Tutor</label>
-                            <input type="text" name="cedula_padre" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="text" name="cedula_padre" 
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['cedula_padre']) ? htmlspecialchars($_POST['cedula_padre']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Fecha de Nacimiento</label>
                             <input type="date" name="fecha_nacimiento_padre" id="fecha_nacimiento_padre" 
                                    onchange="calcularEdad(this, 'edad_padre')" 
-                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['fecha_nacimiento_padre']) ? htmlspecialchars($_POST['fecha_nacimiento_padre']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Edad</label>
                             <input type="number" name="edad_padre" id="edad_padre" readonly
-                                   class="w-full px-4 py-2 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="w-full px-4 py-2 border rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['edad_padre']) ? htmlspecialchars($_POST['edad_padre']) : '' ?>">
                         </div>
                         <div>
                             <label class="block text-gray-700 mb-2">Parentesco</label>
-                            <input type="text" name="parentesco" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="text" name="parentesco" 
+                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   value="<?= isset($_POST['parentesco']) ? htmlspecialchars($_POST['parentesco']) : '' ?>">
                         </div>
                     </div>
                 </div>
                 
-                <!-- Campos personalizados dinámicos (sin campo valor) -->
+                <!-- Campos personalizados dinámicos -->
                 <div class="mb-6">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Campos Personalizados</h2>
                     <div id="customFieldsContainer">
-                        <!-- Campos se añadirán aquí dinámicamente -->
+                        <?php
+                        // Mostrar campos personalizados si hubo error y se recargó el formulario
+                        if (isset($_POST['custom_field_name'])) {
+                            foreach ($_POST['custom_field_name'] as $index => $nombre) {
+                                $descripcion = $_POST['custom_field_desc'][$index] ?? '';
+                                echo '
+                                <div class="custom-field-group mb-4 p-4 border rounded-lg bg-gray-50">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-gray-700 mb-2">Nombre del Campo</label>
+                                            <input type="text" name="custom_field_name[]" 
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                   value="'.htmlspecialchars($nombre).'">
+                                        </div>
+                                        <div>
+                                            <label class="block text-gray-700 mb-2">Descripción</label>
+                                            <input type="text" name="custom_field_desc[]" 
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                   value="'.htmlspecialchars($descripcion).'">
+                                        </div>
+                                    </div>
+                                    <button type="button" class="mt-2 px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 remove-field">
+                                        <i class="fas fa-trash mr-1"></i> Eliminar Campo
+                                    </button>
+                                </div>';
+                            }
+                        }
+                        ?>
                     </div>
                     <button type="button" id="addCustomFieldBtn" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <i class="fas fa-plus mr-1"></i> Añadir Campo Personalizado
@@ -434,7 +358,9 @@ if (!empty($busqueda)) {
                 <div class="mb-6 text-center">
                     <div class="inline-block relative group">
                         <label class="block text-gray-700 mb-2">Fecha de Entrega de Ración Familiar</label>
-                        <input type="date" name="fecha_racion_familiar" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="date" name="fecha_racion_familiar" 
+                               class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               value="<?= isset($_POST['fecha_racion_familiar']) ? htmlspecialchars($_POST['fecha_racion_familiar']) : '' ?>">
                         <div class="absolute hidden group-hover:block bg-white border border-gray-300 p-2 rounded-lg shadow-lg z-10 w-64">
                             <p class="text-sm text-gray-600">Los datos no son obligatorios, pero ten en cuenta que si no completas cédula y nombre, puede afectar la búsqueda en personalización.</p>
                         </div>
@@ -442,17 +368,23 @@ if (!empty($busqueda)) {
                     </div>
                 </div>
                 
-                <div class="flex justify-end">
+                <div class="flex justify-end gap-4">
+                    <button type="reset" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        <i class="fas fa-undo mr-1"></i> Limpiar
+                    </button>
                     <button type="submit" name="registrar" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
                         <i class="fas fa-save mr-1"></i> Guardar Registro
                     </button>
                 </div>
-                <a href="personalizar.php" class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                    </svg>
-                    Realizar personalizaciones 
-                </a>
+                
+                <div class="mt-6">
+                    <a href="personalizar.php" class="text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+                        </svg>
+                        Realizar personalizaciones
+                    </a>
+                </div>
             </form>
         </div>
     </div>
@@ -461,7 +393,7 @@ if (!empty($busqueda)) {
         document.addEventListener('DOMContentLoaded', function() {
             const container = document.getElementById('customFieldsContainer');
             const addBtn = document.getElementById('addCustomFieldBtn');
-            let fieldCount = 0;
+            let fieldCount = container.querySelectorAll('.custom-field-group').length;
             
             addBtn.addEventListener('click', function() {
                 const fieldId = `customField_${fieldCount++}`;
@@ -471,11 +403,13 @@ if (!empty($busqueda)) {
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-gray-700 mb-2">Nombre del Campo</label>
-                                <input type="text" name="custom_field_name[]" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" name="custom_field_name[]" 
+                                       class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="block text-gray-700 mb-2">Descripción</label>
-                                <input type="text" name="custom_field_desc[]" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="text" name="custom_field_desc[]" 
+                                       class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
                         </div>
                         <button type="button" class="mt-2 px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 remove-field">
@@ -491,6 +425,13 @@ if (!empty($busqueda)) {
                 // Agregar evento al botón de eliminar
                 div.querySelector('.remove-field').addEventListener('click', function() {
                     container.removeChild(div);
+                });
+            });
+            
+            // Agregar eventos a los botones de eliminar existentes
+            document.querySelectorAll('.remove-field').forEach(button => {
+                button.addEventListener('click', function() {
+                    container.removeChild(this.closest('.custom-field-group'));
                 });
             });
         });
