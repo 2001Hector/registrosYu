@@ -109,26 +109,19 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
             </div>
             
             <!-- Sección derecha - Fechas y botón -->
-            <div class="flex items-center space-x-2 md:space-x-4">
-                <div class="hidden sm:flex flex-col text-right space-y-0.5">
+            <div class="flex items-center space-x-3 md:space-x-4">
+                <div class="flex flex-col text-right space-y-0.5">
                     <span class="text-xs md:text-sm text-gray-500">
-                        <span class="hidden md:inline">Inicio: </span><?php echo $fecha_inicio; ?>
+                        Inicio: <?php echo $fecha_inicio; ?>
                     </span>
                     <span class="text-xs md:text-sm text-gray-500">
-                        <span class="hidden md:inline">Fin: </span><?php echo $fecha_fin; ?>
+                        Fin: <?php echo $fecha_fin; ?>
                     </span>
-                </div>
-                
-                <!-- Versión móvil para fechas -->
-                <div class="sm:hidden flex items-center space-x-1">
-                    <span class="text-xs text-gray-500"><?php echo substr($fecha_inicio, 0, 5); ?></span>
-                    <span class="text-xs text-gray-300">|</span>
-                    <span class="text-xs text-gray-500"><?php echo substr($fecha_fin, 0, 5); ?></span>
                 </div>
                 
                 <a href="#" onclick="cerrarSesion(); return false;" 
                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200
-                          flex items-center justify-center h-8 md:h-9">
+                          flex items-center justify-center h-8 md:h-9 whitespace-nowrap">
                     <span class="hidden md:inline">Cerrar Sesión</span>
                     <span class="md:hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -140,7 +133,6 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
         </div>
     </div>
 </nav>
-
     <!-- Contenido principal -->
     <div class="min-h-screen pt-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -194,13 +186,13 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
             </a>
         </div>
     </div>
-    <footer class="w-full bg-gray-800 text-white text-center py-4 mt-10 fixed bottom-0">
-    <p class="text-sm">
-        © 2025 Todos los derechos reservados. ingeniero de Sistema : 
-        <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
-            Hector Jose Chamorro Nuñez
-        </a>
-    </p>
-</footer>
+     <footer class="w-full bg-gray-800 text-white text-center py-4">
+        <p class="text-sm">
+            © 2025 Todos los derechos reservados. Ingeniero de Sistema: 
+            <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
+                Hector Jose Chamorro Nuñez
+            </a>
+        </p>
+    </footer>
 </body>
 </html>
