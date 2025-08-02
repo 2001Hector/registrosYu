@@ -167,19 +167,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="bg-gray-100">
     <div class="content">
         <!-- Navbar con botones -->
-        <nav class="bg-white shadow-md py-4 px-6">
-            <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-xl font-bold text-gray-800">Registro Familiar</h1>
-                <div class="flex space-x-4">
-                    <a href="../cliente.php" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                        <i class="fas fa-arrow-left mr-1"></i> Volver
-                    </a>
-                    <a href="personalizar.php" class="inline-flex items-center px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-xl transition-colors duration-300">
-  <i class="fas fa-paint-brush mr-2"></i> Personalizar
-</a>
-                </div>
-            </div>
-        </nav>
+        <nav class="bg-white shadow-md py-4 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <!-- Título -->
+        <h1 class="text-2xl font-bold text-gray-800">Registro Familiar</h1>
+
+        <!-- Botones -->
+        <div class="flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0 w-full sm:w-auto">
+            <a href="../cliente.php"
+               class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm sm:text-base">
+                <i class="fas fa-arrow-left mr-2"></i> Volver
+            </a>
+
+            <a href="personalizar.php"
+               class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm sm:text-base">
+                <i class="fas fa-paint-brush mr-2"></i> Personalizar
+            </a>
+        </div>
+    </div>
+</nav>
+
 
         <div class="container mx-auto px-4 py-8">
             <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
