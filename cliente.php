@@ -95,25 +95,51 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
 </head>
 <body class="bg-gray-100">
     <!-- Navbar superior con información del usuario -->
-    <nav class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-4">
-                    <span class="font-semibold text-gray-700">ID: <?php echo $_SESSION['usuario_id']; ?></span>
-                    <span class="font-semibold text-gray-700">Usuario: <?php echo htmlspecialchars($_SESSION['usuario_nombre']); ?></span>
+    <nav class="bg-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16 md:h-20">
+            <!-- Sección izquierda - Info usuario -->
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <span class="text-sm md:text-base font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                    ID: <?php echo $_SESSION['usuario_id']; ?>
+                </span>
+                <span class="text-sm md:text-base font-medium text-gray-700 truncate max-w-[120px] md:max-w-none">
+                    <?php echo htmlspecialchars($_SESSION['usuario_nombre']); ?>
+                </span>
+            </div>
+            
+            <!-- Sección derecha - Fechas y botón -->
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <div class="hidden sm:flex flex-col text-right space-y-0.5">
+                    <span class="text-xs md:text-sm text-gray-500">
+                        <span class="hidden md:inline">Inicio: </span><?php echo $fecha_inicio; ?>
+                    </span>
+                    <span class="text-xs md:text-sm text-gray-500">
+                        <span class="hidden md:inline">Fin: </span><?php echo $fecha_fin; ?>
+                    </span>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div class="flex flex-col text-right">
-                        <span class="text-sm text-gray-500">Inicio: <?php echo $fecha_inicio; ?></span>
-                        <span class="text-sm text-gray-500">Fin: <?php echo $fecha_fin; ?></span>
-                    </div>
-                    <a href="#" onclick="cerrarSesion(); return false;" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium">
-                        Cerrar Sesión
-                    </a>
+                
+                <!-- Versión móvil para fechas -->
+                <div class="sm:hidden flex items-center space-x-1">
+                    <span class="text-xs text-gray-500"><?php echo substr($fecha_inicio, 0, 5); ?></span>
+                    <span class="text-xs text-gray-300">|</span>
+                    <span class="text-xs text-gray-500"><?php echo substr($fecha_fin, 0, 5); ?></span>
                 </div>
+                
+                <a href="#" onclick="cerrarSesion(); return false;" 
+                   class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200
+                          flex items-center justify-center h-8 md:h-9">
+                    <span class="hidden md:inline">Cerrar Sesión</span>
+                    <span class="md:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+                        </svg>
+                    </span>
+                </a>
             </div>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <!-- Contenido principal -->
     <div class="min-h-screen pt-16">
@@ -168,5 +194,13 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
             </a>
         </div>
     </div>
+    <footer class="w-full bg-gray-800 text-white text-center py-4 mt-10 fixed bottom-0">
+    <p class="text-sm">
+        © 2025 Todos los derechos reservados. ingeniero de Sistema : 
+        <a href="https://2001hector.github.io/PerfilHectorP.github.io/" class="text-blue-400 hover:underline">
+            Hector Jose Chamorro Nuñez
+        </a>
+    </p>
+</footer>
 </body>
 </html>
