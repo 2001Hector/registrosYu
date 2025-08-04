@@ -272,9 +272,14 @@ if ($result) {
                                     $minutos = $diferencia->days * 24 * 60;
                                     $minutos += $diferencia->h * 60;
                                     $minutos += $diferencia->i;
+                                    
+                                    // Formato de hora normal (AM/PM)
+                                    $horaFormatoNormal = $ultimoAcceso->format('d/m/Y h:i A');
                                 ?>
-                                    <?= $ultimoAcceso->format('d/m/Y H:i') ?>
-                                    <span class="text-xs text-gray-500 block">(Hace <?= $minutos ?> minutos)</span>
+                                    <?= $horaFormatoNormal ?>
+                                    <span class="text-xs block <?= $minutos == 0 ? 'text-green-500 font-bold' : 'text-gray-500' ?>">
+                                        <?= $minutos == 0 ? 'Activo' : "(Hace $minutos minutos)" ?>
+                                    </span>
                                 <?php else: ?>
                                     Nunca
                                 <?php endif; ?>
@@ -282,7 +287,7 @@ if ($result) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <!-- Botón Editar -->
-                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>)" 
+                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>" 
                                         class="text-indigo-600 hover:text-indigo-900">
                                         <i class="fas fa-edit"></i>
                                     </button>
