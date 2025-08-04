@@ -1,26 +1,26 @@
 <?php
 require 'db.php';
-// Activar mostrar errores (esto debe ir al inicio del archivo)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
+
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
     try {
         switch ($_GET['action']) {
             case 'delete':
                 $stmt = $conexion->prepare("DELETE FROM usuarios WHERE id = ?");
-                $stmt->execute([$_GET['id']]);
+                $stmt->bind_param("i", $_GET['id']);
+                $stmt->execute();
                 $mensaje = "Usuario eliminado correctamente";
                 break;
                 
             case 'logout':
                 $stmt = $conexion->prepare("UPDATE usuarios SET session_token = NULL WHERE id = ?");
-                $stmt->execute([$_GET['id']]);
+                $stmt->bind_param("i", $_GET['id']);
+                $stmt->execute();
                 $mensaje = "Sesión cerrada forzosamente para el usuario";
                 break;
         }
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         $error = "Error al realizar la acción: " . $e->getMessage();
     }
 }
@@ -37,30 +37,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
         $fecha_fin_pago = !empty($_POST['fecha_fin_pago']) ? $_POST['fecha_fin_pago'] : null;
         
         // Si se proporcionó una nueva contraseña
-        $password_update = "";
-        $params = [$nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id];
-        
         if (!empty($_POST['contrasena'])) {
-            $password_update = ", contraseña = ?";
             $contrasena = password_hash($_POST['contrasena'], PASSWORD_DEFAULT);
-            $params = [$nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $contrasena, $id];
+            $sql = "UPDATE usuarios SET 
+                    nombre = ?, 
+                    correo = ?, 
+                    contraseña = ?, 
+                    telefono = ?, 
+                    estado_pago = ?, 
+                    fecha_inicio_pago = ?, 
+                    fecha_fin_pago = ?
+                    WHERE id = ?";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("sssssssi", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
+        } else {
+            $sql = "UPDATE usuarios SET 
+                    nombre = ?, 
+                    correo = ?, 
+                    telefono = ?, 
+                    estado_pago = ?, 
+                    fecha_inicio_pago = ?, 
+                    fecha_fin_pago = ?
+                    WHERE id = ?";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("sssssi", $nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
         }
-
-        $sql = "UPDATE usuarios SET 
-                nombre = ?, 
-                correo = ?, 
-                telefono = ?, 
-                estado_pago = ?, 
-                fecha_inicio_pago = ?, 
-                fecha_fin_pago = ?
-                $password_update
-                WHERE id = ?";
         
-        $stmt = $conexion->prepare($sql);
-        $stmt->execute($params);
-        
+        $stmt->execute();
         $mensaje = "Usuario actualizado correctamente";
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         $error = "Error al actualizar usuario: " . $e->getMessage();
     }
 }
@@ -94,19 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
             fecha_fin_pago
         ) VALUES (?, ?, ?, ?, ?, ?, ?)");
 
-        $stmt->execute([
-            $nombre,
-            $correo,
-            $contrasena,
-            $telefono,
-            $estado_pago,
-            $fecha_inicio_pago,
-            $fecha_fin_pago
-        ]);
+        $stmt->bind_param("sssssss", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago);
+        $stmt->execute();
 
         $mensaje = "Usuario registrado exitosamente!";
-    } catch (PDOException $e) {
-        if ($e->getCode() == 23000) {
+    } catch (mysqli_sql_exception $e) {
+        if ($e->getCode() == 1062) {
             $error = "El correo electrónico ya está registrado";
         } else {
             $error = "Error al registrar el usuario: " . $e->getMessage();
@@ -117,7 +115,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
 }
 
 // Obtener todos los usuarios para el historial
-$usuarios = $conexion->query("SELECT * FROM usuarios ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$result = $conexion->query("SELECT * FROM usuarios ORDER BY id DESC");
+if ($result) {
+    $usuarios = [];
+    while ($row = $result->fetch_assoc()) {
+        $usuarios[] = $row;
+    }
+    $result->free();
+} else {
+    $error = "Error al obtener usuarios: " . $conexion->error;
+    $usuarios = [];
+}
 ?>
 
 <!DOCTYPE html>
