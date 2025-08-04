@@ -1,6 +1,7 @@
 <?php
 require 'db.php';
-
+date_default_timezone_set('America/Bogota');
+$now = date('Y-m-d H:i:s');
 
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
@@ -32,9 +33,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
         $nombre = filter_input(INPUT_POST, 'nombre', FILTER_SANITIZE_STRING);
         $correo = filter_input(INPUT_POST, 'correo', FILTER_SANITIZE_EMAIL);
         $telefono = !empty($_POST['telefono']) ? filter_input(INPUT_POST, 'telefono', FILTER_SANITIZE_STRING) : null;
-        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : null;
+        
+        // Validar y sanitizar estado de pago
+        $estado_pago = null;
+        if (isset($_POST['estado_pago']) && in_array($_POST['estado_pago'], ['pago', 'no_pago'])) {
+            $estado_pago = $_POST['estado_pago'];
+        }
+        
+        // Validar fechas
         $fecha_inicio_pago = !empty($_POST['fecha_inicio_pago']) ? $_POST['fecha_inicio_pago'] : null;
         $fecha_fin_pago = !empty($_POST['fecha_fin_pago']) ? $_POST['fecha_fin_pago'] : null;
+        
+        // Validar que la fecha de fin no sea anterior a la de inicio
+        if ($fecha_inicio_pago && $fecha_fin_pago && $fecha_fin_pago < $fecha_inicio_pago) {
+            throw new Exception("La fecha de fin no puede ser anterior a la fecha de inicio");
+        }
         
         // Si se proporcionó una nueva contraseña
         if (!empty($_POST['contrasena'])) {
@@ -46,10 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
                     telefono = ?, 
                     estado_pago = ?, 
                     fecha_inicio_pago = ?, 
-                    fecha_fin_pago = ?
+                    fecha_fin_pago = ?,
+                    ultima_actualizacion = ?
                     WHERE id = ?";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssssssi", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
+            $stmt->bind_param("ssssssssi", $nombre, $correo, $contrasena, $telefono, $estado_pago, 
+                              $fecha_inicio_pago, $fecha_fin_pago, $now, $id);
         } else {
             $sql = "UPDATE usuarios SET 
                     nombre = ?, 
@@ -57,10 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
                     telefono = ?, 
                     estado_pago = ?, 
                     fecha_inicio_pago = ?, 
-                    fecha_fin_pago = ?
+                    fecha_fin_pago = ?,
+                    ultima_actualizacion = ?
                     WHERE id = ?";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssssi", $nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
+            $stmt->bind_param("sssssssi", $nombre, $correo, $telefono, $estado_pago, 
+                              $fecha_inicio_pago, $fecha_fin_pago, $now, $id);
         }
         
         $stmt->execute();
@@ -77,7 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
         $correo = filter_input(INPUT_POST, 'correo', FILTER_SANITIZE_EMAIL);
         $contrasena = password_hash($_POST['contrasena'], PASSWORD_DEFAULT);
         $telefono = !empty($_POST['telefono']) ? filter_input(INPUT_POST, 'telefono', FILTER_SANITIZE_STRING) : null;
-        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : null;
+        
+        // Validar y sanitizar estado de pago
+        $estado_pago = null;
+        if (isset($_POST['estado_pago']) && in_array($_POST['estado_pago'], ['pago', 'no_pago'])) {
+            $estado_pago = $_POST['estado_pago'];
+        }
+        
         $fecha_inicio_pago = !empty($_POST['fecha_inicio_pago']) ? $_POST['fecha_inicio_pago'] : null;
         $fecha_fin_pago = !empty($_POST['fecha_fin_pago']) ? $_POST['fecha_fin_pago'] : null;
 
@@ -96,10 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
             telefono, 
             estado_pago, 
             fecha_inicio_pago, 
-            fecha_fin_pago
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            fecha_fin_pago,
+            fecha_registro
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
-        $stmt->bind_param("sssssss", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago);
+        $stmt->bind_param("ssssssss", $nombre, $correo, $contrasena, $telefono, $estado_pago, 
+                         $fecha_inicio_pago, $fecha_fin_pago, $now);
         $stmt->execute();
 
         $mensaje = "Usuario registrado exitosamente!";
