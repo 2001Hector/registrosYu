@@ -1,6 +1,7 @@
 <?php
 require 'db.php';
 
+
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
     try {
@@ -247,7 +248,6 @@ if ($result) {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Acceso</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
@@ -277,23 +277,11 @@ if ($result) {
                                     $horaFormatoNormal = $ultimoAcceso->format('d/m/Y h:i A');
                                 ?>
                                     <?= $horaFormatoNormal ?>
+                                    <span class="text-xs block <?= $minutos == 0 ? 'text-green-500 font-bold' : 'text-gray-500' ?>">
+                                        <?= $minutos == 0 ? 'Activo' : "(Hace $minutos minutos)" ?>
+                                    </span>
                                 <?php else: ?>
                                     Nunca
-                                <?php endif; ?>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <?php if ($usuario['ultimo_acceso']): ?>
-                                    <div class="flex items-center">
-                                        <span class="h-3 w-3 rounded-full <?= $minutos < 5 ? 'bg-green-500' : 'bg-gray-400' ?> mr-2"></span>
-                                        <span class="text-xs <?= $minutos < 5 ? 'text-green-700' : 'text-gray-500' ?>">
-                                            <?= $minutos < 5 ? 'En línea' : 'Fuera de línea' ?>
-                                        </span>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="flex items-center">
-                                        <span class="h-3 w-3 rounded-full bg-gray-400 mr-2"></span>
-                                        <span class="text-xs text-gray-500">Nunca conectado</span>
-                                    </div>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
