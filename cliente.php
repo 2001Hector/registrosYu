@@ -1,7 +1,8 @@
 <?php
 session_start();
 require 'db.php';
-
+date_default_timezone_set('America/Bogota');
+$now = date('Y-m-d H:i:s');
 // Verificación básica de sesión
 if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] || !$_SESSION['pagado']) {
     header("Location: index.php");
@@ -61,8 +62,7 @@ if (isset($_SESSION['last_activity'])) {
 $_SESSION['last_activity'] = time();
 
 
-// Actualizar último acceso
-$now = date('Y-m-d H:i:s');
+// Actualizar el último acceso en la base de datos
 $update_sql = "UPDATE usuarios SET ultimo_acceso = ? WHERE id = ?";
 $update_stmt = mysqli_prepare($conexion, $update_sql);
 mysqli_stmt_bind_param($update_stmt, "si", $now, $_SESSION['usuario_id']);
@@ -73,7 +73,7 @@ $fecha_inicio = date('d/m/Y', strtotime($_SESSION['fecha_inicio_pago']));
 $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es"> 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
