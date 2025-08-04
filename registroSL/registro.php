@@ -684,63 +684,6 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
             }
         });
     </script>
-    
-    CO
-    
-    Omitir navegación
-    Buscar
-    
-    
-    
-    Crear
-    
-    
-    Imagen de avatar
-    
-    CO
-    Principal
-    Shorts
-    Suscripciones
-    Tú
-    Historial
-    Playlists
-    Tus videos
-    Ver más tarde
-    Videos que me gustan
-    Suscripciones
-    
-    Mr Bean
-    
-    CNN en Español
-    
-    El 13
-    
-    Telefe Noticias
-    
-    National Geographic
-    
-    NASA
-    
-    Tengo Talento Mucho Talento
-    Mostrar más
-    Explorar
-    Música
-    En vivo
-    Videojuegos
-    Noticias
-    Deportes
-    Aprendizaje
-    Más de YouTube
-    YouTube Premium
-    YouTube Studio
-    YouTube Music
-    YouTube Kids
-    Configuración
-    Historial de denuncias
-    Ayuda
-    Enviar comentarios
-    Acerca dePrensaDerechos de autorComunicarte con nosotrosCreadoresAnunciarDesarrolladores
-    CondicionesPrivacidadPolíticas y seguridadCómo funciona YouTubePrueba funciones nuevas
-    © 2025 Google LLC
+
 </body>
 </html> . 

@@ -1,8 +1,6 @@
 <?php
 require 'db.php';
 
-// Configurar zona horaria para Colombia
-date_default_timezone_set('America/Bogota');
 
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
@@ -16,7 +14,7 @@ if (isset($_GET['action'])) {
                 break;
                 
             case 'logout':
-                $stmt = $conexion->prepare("UPDATE usuarios SET session_token = NULL, ultimo_acceso = NOW() WHERE id = ?");
+                $stmt = $conexion->prepare("UPDATE usuarios SET session_token = NULL WHERE id = ?");
                 $stmt->bind_param("i", $_GET['id']);
                 $stmt->execute();
                 $mensaje = "Sesión cerrada forzosamente para el usuario";
@@ -98,9 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
             telefono, 
             estado_pago, 
             fecha_inicio_pago, 
-            fecha_fin_pago,
-            ultimo_acceso
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+            fecha_fin_pago
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)");
 
         $stmt->bind_param("sssssss", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago);
         $stmt->execute();
@@ -118,14 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
 }
 
 // Obtener todos los usuarios para el historial
-$result = $conexion->query("SELECT *, 
-    CASE 
-        WHEN session_token IS NOT NULL AND ultimo_acceso >= NOW() - INTERVAL 5 MINUTE THEN 'en_linea'
-        WHEN ultimo_acceso IS NULL THEN 'nunca'
-        ELSE 'desconectado'
-    END AS estado_conexion
-    FROM usuarios ORDER BY id DESC");
-    
+$result = $conexion->query("SELECT * FROM usuarios ORDER BY id DESC");
 if ($result) {
     $usuarios = [];
     while ($row = $result->fetch_assoc()) {
@@ -252,81 +242,52 @@ if ($result) {
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Acceso</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Pago</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Acceso</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        <?php foreach ($usuarios as $usuario): 
-                            // Formatear fecha y hora en formato colombiano (d/m/Y h:i A)
-                            $ultimoAccesoTexto = 'Nunca';
-                            $tiempoDesdeUltimoAcceso = '';
-                            
-                            if ($usuario['ultimo_acceso']) {
-                                $ultimoAcceso = new DateTime($usuario['ultimo_acceso']);
-                                $ahora = new DateTime();
-                                $diferencia = $ahora->diff($ultimoAcceso);
-                                
-                                $minutos = $diferencia->days * 24 * 60;
-                                $minutos += $diferencia->h * 60;
-                                $minutos += $diferencia->i;
-                                
-                                $segundos = $diferencia->days * 24 * 60 * 60;
-                                $segundos += $diferencia->h * 60 * 60;
-                                $segundos += $diferencia->i * 60;
-                                $segundos += $diferencia->s;
-                                
-                                $ultimoAccesoTexto = $ultimoAcceso->format('d/m/Y h:i A');
-                                
-                                if ($segundos < 60) {
-                                    $tiempoDesdeUltimoAcceso = "Hace $segundos seg";
-                                } elseif ($minutos < 60) {
-                                    $tiempoDesdeUltimoAcceso = "Hace $minutos min";
-                                } elseif ($diferencia->h < 24) {
-                                    $tiempoDesdeUltimoAcceso = "Hace {$diferencia->h} h";
-                                } else {
-                                    $tiempoDesdeUltimoAcceso = "Hace {$diferencia->days} d";
-                                }
-                            }
-                        ?>
+                        <?php foreach ($usuarios as $usuario): ?>
                         <tr>
-                            <td class="px-3 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['id']) ?></td>
-                            <td class="px-3 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['nombre']) ?></td>
-                            <td class="px-3 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['correo']) ?></td>
-                            <td class="px-3 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['telefono'] ?? 'N/A') ?></td>
-                            <td class="px-3 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['id']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['nombre']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['correo']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap"><?= htmlspecialchars($usuario['telefono'] ?? 'N/A') ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?= $usuario['estado_pago'] == 'pago' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
                                     <?= $usuario['estado_pago'] == 'pago' ? 'Pagado' : 'No pagado' ?>
                                 </span>
                             </td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm">
-                                <?= $ultimoAccesoTexto ?>
-                            </td>
-                            <td class="px-3 py-4 whitespace-nowrap">
-                                <?php if ($usuario['estado_conexion'] == 'en_linea'): ?>
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        En línea
-                                    </span>
-                                <?php elseif ($usuario['estado_conexion'] == 'desconectado'): ?>
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800" title="<?= $ultimoAccesoTexto ?>">
-                                        <?= $tiempoDesdeUltimoAcceso ?>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <?php if ($usuario['ultimo_acceso']): 
+                                    $ultimoAcceso = new DateTime($usuario['ultimo_acceso']);
+                                    $ahora = new DateTime();
+                                    $diferencia = $ahora->diff($ultimoAcceso);
+                                    
+                                    $minutos = $diferencia->days * 24 * 60;
+                                    $minutos += $diferencia->h * 60;
+                                    $minutos += $diferencia->i;
+                                    
+                                    // Formato de hora normal (AM/PM)
+                                    $horaFormatoNormal = $ultimoAcceso->format('d/m/Y h:i A');
+                                ?>
+                                    <?= $horaFormatoNormal ?>
+                                    <span class="text-xs block <?= $minutos == 0 ? 'text-green-500 font-bold' : 'text-gray-500' ?>">
+                                        <?= $minutos == 0 ? 'Activo' : "(Hace $minutos minutos)" ?>
                                     </span>
                                 <?php else: ?>
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                        Nunca
-                                    </span>
+                                    Nunca
                                 <?php endif; ?>
                             </td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <!-- Botón Editar -->
-                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>)"
+                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>" 
                                         class="text-indigo-600 hover:text-indigo-900">
                                         <i class="fas fa-edit"></i>
                                     </button>
