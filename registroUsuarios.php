@@ -1,6 +1,7 @@
 <?php
+// Configurar zona horaria de Colombia (UTC-5)
+date_default_timezone_set('America/Bogota');
 require 'db.php';
-
 
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
         $nombre = filter_input(INPUT_POST, 'nombre', FILTER_SANITIZE_STRING);
         $correo = filter_input(INPUT_POST, 'correo', FILTER_SANITIZE_EMAIL);
         $telefono = !empty($_POST['telefono']) ? filter_input(INPUT_POST, 'telefono', FILTER_SANITIZE_STRING) : null;
-        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : null;
+        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : 'no_pago'; // Asegurar estado "no_pago" por defecto
         $fecha_inicio_pago = !empty($_POST['fecha_inicio_pago']) ? $_POST['fecha_inicio_pago'] : null;
         $fecha_fin_pago = !empty($_POST['fecha_fin_pago']) ? $_POST['fecha_fin_pago'] : null;
         
@@ -60,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
                     fecha_fin_pago = ?
                     WHERE id = ?";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("sssssi", $nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
+            $stmt->bind_param("ssssssi", $nombre, $correo, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago, $id);
         }
         
         $stmt->execute();
@@ -77,16 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
         $correo = filter_input(INPUT_POST, 'correo', FILTER_SANITIZE_EMAIL);
         $contrasena = password_hash($_POST['contrasena'], PASSWORD_DEFAULT);
         $telefono = !empty($_POST['telefono']) ? filter_input(INPUT_POST, 'telefono', FILTER_SANITIZE_STRING) : null;
-        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : null;
+        $estado_pago = isset($_POST['estado_pago']) ? $_POST['estado_pago'] : 'no_pago'; // Estado por defecto: "no_pago"
         $fecha_inicio_pago = !empty($_POST['fecha_inicio_pago']) ? $_POST['fecha_inicio_pago'] : null;
         $fecha_fin_pago = !empty($_POST['fecha_fin_pago']) ? $_POST['fecha_fin_pago'] : null;
 
         if (empty($nombre) || empty($correo) || empty($_POST['contrasena'])) {
             throw new Exception("Todos los campos marcados como obligatorios deben ser completados");
-        }
-
-        if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-            throw new Exception("El correo electrónico no es válido");
         }
 
         $stmt = $conexion->prepare("INSERT INTO usuarios (
@@ -109,23 +106,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
         } else {
             $error = "Error al registrar el usuario: " . $e->getMessage();
         }
-    } catch (Exception $e) {
-        $error = $e->getMessage();
     }
 }
 
-// Obtener todos los usuarios para el historial
+// Obtener todos los usuarios
 $result = $conexion->query("SELECT * FROM usuarios ORDER BY id DESC");
-if ($result) {
-    $usuarios = [];
-    while ($row = $result->fetch_assoc()) {
-        $usuarios[] = $row;
-    }
-    $result->free();
-} else {
-    $error = "Error al obtener usuarios: " . $conexion->error;
-    $usuarios = [];
-}
+$usuarios = $result->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -201,7 +187,6 @@ if ($result) {
                     <label for="estado_pago" class="block text-sm font-medium text-gray-700">Estado de Pago</label>
                     <select id="estado_pago" name="estado_pago"
                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">Seleccione...</option>
                         <option value="no_pago" <?= (isset($_POST['estado_pago']) && $_POST['estado_pago'] == 'no_pago') ? 'selected' : '' ?>>No pagado</option>
                         <option value="pago" <?= (isset($_POST['estado_pago']) && $_POST['estado_pago'] == 'pago') ? 'selected' : '' ?>>Pagado</option>
                     </select>
@@ -265,20 +250,16 @@ if ($result) {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <?php if ($usuario['ultimo_acceso']): 
-                                    $ultimoAcceso = new DateTime($usuario['ultimo_acceso']);
-                                    $ahora = new DateTime();
+                                    $ultimoAcceso = new DateTime($usuario['ultimo_acceso'], new DateTimeZone('America/Bogota'));
+                                    $ahora = new DateTime('now', new DateTimeZone('America/Bogota'));
                                     $diferencia = $ahora->diff($ultimoAcceso);
                                     
-                                    $minutos = $diferencia->days * 24 * 60;
-                                    $minutos += $diferencia->h * 60;
-                                    $minutos += $diferencia->i;
-                                    
-                                    // Formato de hora normal (AM/PM)
-                                    $horaFormatoNormal = $ultimoAcceso->format('d/m/Y h:i A');
+                                    $minutos = ($diferencia->days * 24 * 60) + ($diferencia->h * 60) + $diferencia->i;
+                                    $horaFormato = $ultimoAcceso->format('d/m/Y h:i A');
                                 ?>
-                                    <?= $horaFormatoNormal ?>
+                                    <?= $horaFormato ?>
                                     <span class="text-xs block <?= $minutos == 0 ? 'text-green-500 font-bold' : 'text-gray-500' ?>">
-                                        <?= $minutos == 0 ? 'Activo' : "(Hace $minutos minutos)" ?>
+                                        <?= $minutos == 0 ? 'Activo ahora' : "(Hace $minutos minutos)" ?>
                                     </span>
                                 <?php else: ?>
                                     Nunca
@@ -287,7 +268,7 @@ if ($result) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <!-- Botón Editar -->
-                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>" 
+                                    <button onclick="openEditModal(<?= htmlspecialchars(json_encode($usuario)) ?>)" 
                                         class="text-indigo-600 hover:text-indigo-900">
                                         <i class="fas fa-edit"></i>
                                     </button>
