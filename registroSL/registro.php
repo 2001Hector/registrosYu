@@ -4,7 +4,7 @@ require '../db.php';
 
 // Verificar si el usuario está logueado y ha pagado
 if (!isset($_SESSION['logueado']) || !$_SESSION['logueado'] || !$_SESSION['pagado']) {
-    header("Location: index.php");
+    header("Location: ../index.php");
     exit();
 }
 
@@ -24,11 +24,31 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
             mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
             mysqli_stmt_execute($clean_stmt);
             session_destroy();
-            header("Location: index.php");
+            header("Location: ../index.php");
             exit();
         }
     }
 }
+
+
+// Verificar y actualizar tiempo de inactividad
+if (isset($_SESSION['last_activity'])) {
+    $inactive_time = 600; // 10 minutos en segundos
+    $session_life = time() - $_SESSION['last_activity'];
+    
+    if ($session_life > $inactive_time) {
+        // Limpiar session_token en la base de datos
+        if (isset($_SESSION['usuario_id'])) {
+            $conexion->query("UPDATE usuarios SET session_token = NULL WHERE id = {$_SESSION['usuario_id']}");
+        }
+        
+        session_unset();
+        session_destroy();
+        header("Location: index.php?timeout=1");
+        exit();
+    }
+}
+$_SESSION['last_activity'] = time();
 
 // Actualizar último acceso
 $now = date('Y-m-d H:i:s');
@@ -664,5 +684,63 @@ while ($fila = mysqli_fetch_assoc($resultado_familias)) {
             }
         });
     </script>
+    
+    CO
+    
+    Omitir navegación
+    Buscar
+    
+    
+    
+    Crear
+    
+    
+    Imagen de avatar
+    
+    CO
+    Principal
+    Shorts
+    Suscripciones
+    Tú
+    Historial
+    Playlists
+    Tus videos
+    Ver más tarde
+    Videos que me gustan
+    Suscripciones
+    
+    Mr Bean
+    
+    CNN en Español
+    
+    El 13
+    
+    Telefe Noticias
+    
+    National Geographic
+    
+    NASA
+    
+    Tengo Talento Mucho Talento
+    Mostrar más
+    Explorar
+    Música
+    En vivo
+    Videojuegos
+    Noticias
+    Deportes
+    Aprendizaje
+    Más de YouTube
+    YouTube Premium
+    YouTube Studio
+    YouTube Music
+    YouTube Kids
+    Configuración
+    Historial de denuncias
+    Ayuda
+    Enviar comentarios
+    Acerca dePrensaDerechos de autorComunicarte con nosotrosCreadoresAnunciarDesarrolladores
+    CondicionesPrivacidadPolíticas y seguridadCómo funciona YouTubePrueba funciones nuevas
+    © 2025 Google LLC
 </body>
 </html> . 

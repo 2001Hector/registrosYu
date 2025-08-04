@@ -22,7 +22,7 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
             mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
             mysqli_stmt_execute($clean_stmt);
             session_destroy();
-            header("Location: index.php");
+            header("Location: ../index.php");
             exit();
         }
     }

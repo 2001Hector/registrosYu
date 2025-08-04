@@ -2,6 +2,7 @@
 require '../db.php';
 session_start();
 
+
 // Configuración para mostrar errores (quitar en producción)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
