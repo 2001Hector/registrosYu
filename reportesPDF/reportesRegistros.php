@@ -3,7 +3,7 @@ session_start();
 require '../db.php';
 
 if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true || !isset($_SESSION['usuario_id'])) {
-    header("Location: index.php");
+    header("Location: ../index.php");
     exit();
 }
 
@@ -28,18 +28,24 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
     }
 }
 
-// Manejo de inactividad
-if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
-    if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
-        $clean_stmt = mysqli_prepare($conexion, "UPDATE usuarios SET session_token = NULL WHERE id = ?");
-        mysqli_stmt_bind_param($clean_stmt, "i", $_SESSION['usuario_id']);
-        mysqli_stmt_execute($clean_stmt);
+// Verificar y actualizar tiempo de inactividad
+if (isset($_SESSION['last_activity'])) {
+    $inactive_time = 600; // 10 minutos en segundos
+    $session_life = time() - $_SESSION['last_activity'];
+    
+    if ($session_life > $inactive_time) {
+        // Limpiar session_token en la base de datos
+        if (isset($_SESSION['usuario_id'])) {
+            $conexion->query("UPDATE usuarios SET session_token = NULL WHERE id = {$_SESSION['usuario_id']}");
+        }
+        
+        session_unset();
+        session_destroy();
+        header("Location: ../index.php?timeout=1");
+        exit();
     }
-    session_destroy();
-    header("Location: index.php");
-    exit();
 }
-$_SESSION['LAST_ACTIVITY'] = time();
+$_SESSION['last_activity'] = time();
 
 // Actualizar último acceso
 $update_sql = "UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = ?";
