@@ -1,6 +1,9 @@
 <?php
 require 'db.php';
-
+// Activar mostrar errores (esto debe ir al inicio del archivo)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 // Procesar acciones (eliminar, actualizar, cerrar sesión)
 if (isset($_GET['action'])) {
     try {
