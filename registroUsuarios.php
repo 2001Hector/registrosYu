@@ -16,7 +16,7 @@ if (isset($_GET['action'])) {
                 break;
                 
             case 'logout':
-                $stmt = $conexion->prepare("UPDATE usuarios SET session_token = NULL WHERE id = ?");
+                $stmt = $conexion->prepare("UPDATE usuarios SET session_token = NULL, ultimo_acceso = NOW() WHERE id = ?");
                 $stmt->bind_param("i", $_GET['id']);
                 $stmt->execute();
                 $mensaje = "Sesión cerrada forzosamente para el usuario";
@@ -98,8 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
             telefono, 
             estado_pago, 
             fecha_inicio_pago, 
-            fecha_fin_pago
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            fecha_fin_pago,
+            ultimo_acceso
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
 
         $stmt->bind_param("sssssss", $nombre, $correo, $contrasena, $telefono, $estado_pago, $fecha_inicio_pago, $fecha_fin_pago);
         $stmt->execute();
@@ -117,7 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['update'])) {
 }
 
 // Obtener todos los usuarios para el historial
-$result = $conexion->query("SELECT * FROM usuarios ORDER BY id DESC");
+$result = $conexion->query("SELECT *, 
+    CASE 
+        WHEN session_token IS NOT NULL AND ultimo_acceso >= NOW() - INTERVAL 5 MINUTE THEN 'en_linea'
+        WHEN ultimo_acceso IS NULL THEN 'nunca'
+        ELSE 'desconectado'
+    END AS estado_conexion
+    FROM usuarios ORDER BY id DESC");
+    
 if ($result) {
     $usuarios = [];
     while ($row = $result->fetch_assoc()) {
@@ -256,8 +264,7 @@ if ($result) {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($usuarios as $usuario): 
-                            // Determinar si el usuario está en línea (consideramos "en línea" si su último acceso fue hace menos de 5 minutos)
-                            $enLinea = false;
+                            // Formatear fecha y hora en formato colombiano (d/m/Y h:i A)
                             $ultimoAccesoTexto = 'Nunca';
                             $tiempoDesdeUltimoAcceso = '';
                             
@@ -270,13 +277,15 @@ if ($result) {
                                 $minutos += $diferencia->h * 60;
                                 $minutos += $diferencia->i;
                                 
-                                $enLinea = ($minutos < 5); // Consideramos en línea si fue hace menos de 5 minutos
+                                $segundos = $diferencia->days * 24 * 60 * 60;
+                                $segundos += $diferencia->h * 60 * 60;
+                                $segundos += $diferencia->i * 60;
+                                $segundos += $diferencia->s;
                                 
-                                // Formatear fecha y hora en formato colombiano (d/m/Y h:i A)
                                 $ultimoAccesoTexto = $ultimoAcceso->format('d/m/Y h:i A');
                                 
-                                if ($minutos == 0) {
-                                    $tiempoDesdeUltimoAcceso = 'Ahora mismo';
+                                if ($segundos < 60) {
+                                    $tiempoDesdeUltimoAcceso = "Hace $segundos seg";
                                 } elseif ($minutos < 60) {
                                     $tiempoDesdeUltimoAcceso = "Hace $minutos min";
                                 } elseif ($diferencia->h < 24) {
@@ -300,11 +309,11 @@ if ($result) {
                                 <?= $ultimoAccesoTexto ?>
                             </td>
                             <td class="px-3 py-4 whitespace-nowrap">
-                                <?php if ($enLinea): ?>
+                                <?php if ($usuario['estado_conexion'] == 'en_linea'): ?>
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                         En línea
                                     </span>
-                                <?php elseif ($usuario['ultimo_acceso']): ?>
+                                <?php elseif ($usuario['estado_conexion'] == 'desconectado'): ?>
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800" title="<?= $ultimoAccesoTexto ?>">
                                         <?= $tiempoDesdeUltimoAcceso ?>
                                     </span>
