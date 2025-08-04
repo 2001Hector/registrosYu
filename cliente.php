@@ -31,13 +31,13 @@ if (isset($_SESSION['session_token']) && isset($_SESSION['usuario_id'])) {
     } else {
         // Usuario no encontrado
         session_destroy();
-        header("Location: /index.php");
+        header("Location: index.php");
         exit();
     }
 } else {
     // No hay token de sesión
     session_destroy();
-    header("Location: /index.php");
+    header("Location: index.php");
     exit();
 }
 
@@ -54,7 +54,7 @@ if (isset($_SESSION['last_activity'])) {
         
         session_unset();
         session_destroy();
-        header("Location: ../index.php?timeout=1");
+        header("Location: index.php?timeout=1");
         exit();
     }
 }
