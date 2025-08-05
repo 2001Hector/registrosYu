@@ -89,6 +89,8 @@ $inicio = ($pagina - 1) * $por_pagina;
 $filtro = "";
 $params = [];
 $tipos = "";
+$params_conteo = [];
+$tipos_conteo = "";
 
 if (isset($_GET['buscar']) && !empty($_GET['busqueda'])) {
     $busqueda = "%".trim($_GET['busqueda'])."%";
@@ -97,6 +99,8 @@ if (isset($_GET['buscar']) && !empty($_GET['busqueda'])) {
               d.nombre_nino LIKE ? OR d.cedula_nino LIKE ?)";
     $params = array_fill(0, 6, $busqueda);
     $tipos = str_repeat("s", 6);
+    $params_conteo = $params;
+    $tipos_conteo = $tipos;
 }
 
 // Consulta principal con JOIN a todas las tablas
@@ -130,10 +134,7 @@ $sql_total = "SELECT COUNT(DISTINCT r.id_registro) as total
               $filtro";
               
 $stmt_total = mysqli_prepare($conexion, $sql_total);
-if ($params) {
-    // Removemos los parámetros de paginación para el conteo
-    $params_conteo = array_slice($params, 0, count($params)-2);
-    $tipos_conteo = substr($tipos, 0, -2);
+if ($params_conteo) {
     mysqli_stmt_bind_param($stmt_total, $tipos_conteo, ...$params_conteo);
 }
 mysqli_stmt_execute($stmt_total);
