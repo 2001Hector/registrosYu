@@ -207,7 +207,19 @@ $fecha_fin = date('d/m/Y', strtotime($_SESSION['fecha_fin_pago']));
         </svg>
         Descargar reportes de registros PDF
     </a>
-   
+      <!-- historial general -->
+<a href="reporteSL/historial_General.php" 
+   class="block text-lg font-medium text-green-700 hover:text-green-800 transition-colors flex items-center hover:underline">
+    <svg xmlns="http://www.w3.org/2000/svg" 
+         class="h-6 w-6 mr-3 text-green-600" 
+         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" 
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    Historial general de registros
+</a>
+
+
 </div>
      <footer class="w-full bg-gray-800 text-white text-center py-4">
         <p class="text-sm">
