@@ -13,7 +13,4 @@ if (!$conexion) {
     die("Error de conexión: " . mysqli_connect_error());
 }
 
-// Si llega aquí, la conexión fue exitosa
-echo "Conexión exitosa a la base de datos.";
-
 ?>
