@@ -30,7 +30,6 @@ if (!isset($_SESSION['es_admin']) || !$_SESSION['es_admin']) {
     }
 }
 
-
 // Verificar y actualizar tiempo de inactividad
 if (isset($_SESSION['last_activity'])) {
     $inactive_time = 600; // 10 minutos en segundos
@@ -69,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nombre_jefe_hogar = mysqli_real_escape_string($conexion, $_POST['nombre_jefe_hogar']);
     $documento_jefe_hogar = mysqli_real_escape_string($conexion, $_POST['documento_jefe_hogar']);
     $nombre_salida = mysqli_real_escape_string($conexion, $_POST['nombre_salida']);
-    $fecha = date('Y-m-d'); // Fecha actual
+    $fecha = mysqli_real_escape_string($conexion, $_POST['fecha']); // Cambio importante: Usar la fecha del formulario
     
     // Procesar el tipo de RFPP
     $tipo_rfpp = null;
@@ -139,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Insertar la información de la imagen en la base de datos
                     $query_img = "INSERT INTO imagen_registro (imagen, fecha_imagen, id_registro) VALUES (?, ?, ?)";
                     $stmt_img = mysqli_prepare($conexion, $query_img);
-                    $fecha_imagen = $fecha;
+                    $fecha_imagen = $fecha; // Usar la misma fecha del formulario
                     $ruta_db = 'uploads/' . $nombre_unico; // Cambiado para almacenar ruta relativa
                     mysqli_stmt_bind_param($stmt_img, 'ssi', $ruta_db, $fecha_imagen, $id_registro);
                     mysqli_stmt_execute($stmt_img);
@@ -171,6 +170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             renderPreview();
             // Resetear el campo de RFPP
             document.getElementById("tipo_rfpp_container").style.display = "none";
+            // Restablecer la fecha al día actual
+            document.getElementById("fecha").value = "'.date('Y-m-d').'";
         });
     </script>';
 }
@@ -178,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Obtener datos de la tabla datos_familiares para el filtro
 $query_familias = "SELECT cedula_padre, nombre_padre FROM datos_familiares WHERE usuario_id = ?";
 $stmt_familias = mysqli_prepare($conexion, $query_familias);
-mysqli_stmt_bind_param($stmt_familias, "i", $_SESSION['usuario_id']);
+mysqli_stmt_bind_param($stmt_familiars, "i", $_SESSION['usuario_id']);
 mysqli_stmt_execute($stmt_familias);
 $resultado_familias = mysqli_stmt_get_result($stmt_familias);
 $familias = [];
